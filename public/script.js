@@ -3074,3 +3074,40 @@ window.showManualAttendanceModal = async function(liveClassId) {
       });
     }
   }
+
+  // تبديل الوضع المظلم
+const themeSwitcher = document.createElement('button');
+themeSwitcher.className = 'theme-switcher';
+themeSwitcher.innerHTML = '<i class="bi bi-moon-fill"></i>';
+document.body.appendChild(themeSwitcher);
+
+themeSwitcher.addEventListener('click', () => {
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  if (currentTheme === 'dark') {
+    document.documentElement.removeAttribute('data-theme');
+    themeSwitcher.innerHTML = '<i class="bi bi-moon-fill"></i>';
+  } else {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    themeSwitcher.innerHTML = '<i class="bi bi-sun-fill"></i>';
+  }
+});
+// For main app footer
+document.getElementById('app-current-year').textContent = new Date().getFullYear();
+// After successful login, update header user info
+function updateHeaderUserInfo() {
+    const user = getCurrentUser(); // Your function to get current user
+    document.getElementById('header-user-name').textContent = user.name;
+    document.getElementById('header-user-role').textContent = user.role;
+    
+    // Also update the sidebar user info if needed
+    document.getElementById('user-name').textContent = user.name;
+    document.getElementById('user-role').textContent = user.role;
+}
+
+// Theme toggle functionality
+document.getElementById('theme-toggle').addEventListener('click', function() {
+    document.body.setAttribute('data-theme', 
+        document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    this.innerHTML = document.body.getAttribute('data-theme') === 'dark' ? 
+        '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-fill"></i>';
+});
