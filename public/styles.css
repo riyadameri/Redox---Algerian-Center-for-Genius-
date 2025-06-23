@@ -886,21 +886,19 @@ body {
   }
   /* تنسيق الهيدر الرئيسي */
 h2 {
-  text-align: center;
-  width: 100%;
-  color: whitesmoke;
-  background-color: var(--dark-color);
-  padding: 12px;
-  border-radius: 10px;
-  box-shadow: var(--box-shadow);
-  margin: 10px auto;
-  font-family: 'Tajawal', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  color : var(--text-color);
   font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  font-size: 1.2rem;
+  font-size: 1.5rem;
+  margin: 0;
+  padding: 0.8rem 1.5rem;
+  background-color: var(--card-bg);
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  flex-grow: 1;
 }
-
+.text-muted{
+  color : blue
+}
 /* تنسيق معلومات المستخدم */
 #user-name, #user-role {
   color: whitesmoke;
