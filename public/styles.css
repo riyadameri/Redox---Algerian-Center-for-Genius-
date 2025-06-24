@@ -445,6 +445,7 @@ body {
 
 .table-hover tbody tr:hover td {
   background-color: rgba(67, 97, 238, 0.1);
+  color: var(--light-color);
 }
 
 /* Buttons */
@@ -1210,7 +1211,7 @@ h2 {
   }
   
   .table tbody td {
-    border-top-color: #444;
+    border-top-color: #444444;
   }
   
   .sidebar {

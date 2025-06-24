@@ -29,3 +29,7 @@ void loop() {
   mfrc522.PCD_StopCrypto1();
   delay(1000);
 }
+
+
+sudo usermod -a -G dialout $USER
+sudo chmod a+rw /dev/ttyACM0
