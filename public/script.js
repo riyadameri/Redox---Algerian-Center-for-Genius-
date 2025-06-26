@@ -127,6 +127,9 @@ async function login(username, password) {
         // Initialize the application
         function initApp() {
             // Load initial data
+
+            document.getElementById('cardSearchInput').addEventListener('input', searchCards);
+
             loadStudents();
             loadTeachers();
             loadClasses();
@@ -141,8 +144,12 @@ async function login(username, password) {
 
             loadLiveClasses();
             loadDataForLiveClassModal();
-          
+
             
+          //serarsh 
+            document.getElementById('studentSearchInput').addEventListener('input', searchStudents);
+            document.getElementById('paymentSearchInput').addEventListener('input', searchPayments);
+        
             // Set today's date as default registration date
             document.getElementById('registrationDate').value = new Date().toISOString().split('T')[0];
             
@@ -587,6 +594,8 @@ async function login(username, password) {
         }
 
         async function loadCards() {
+            await searchCards();
+
             try {
                 const response = await fetch('/api/cards', {
                     headers: getAuthHeaders()
@@ -3111,3 +3120,376 @@ document.getElementById('theme-toggle').addEventListener('click', function() {
     this.innerHTML = document.body.getAttribute('data-theme') === 'dark' ? 
         '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-fill"></i>';
 });
+// Fixed searchStudents function
+async function searchStudents() {
+    const searchTerm = document.getElementById('studentSearchInput').value.trim().toLowerCase();
+    try {
+        const response = await fetch('/api/students', {
+            headers: getAuthHeaders()
+        });
+        
+        if (response.status === 401) {
+            logout();
+            return;
+        }
+        
+        const students = await response.json();
+        
+        // Filter students based on search term
+        const filteredStudents = students.filter(student => {
+            // If search term is empty, show all students
+            if (!searchTerm) return true;
+            
+            // Check if search term matches any student property
+            return (
+                (student.name && student.name.toLowerCase().includes(searchTerm)) ||
+                (student.studentId && student.studentId.toLowerCase().includes(searchTerm)) ||
+                (student.parentName && student.parentName.toLowerCase().includes(searchTerm)) ||
+                (student.academicYear && getAcademicYearName(student.academicYear).toLowerCase().includes(searchTerm))
+            );
+        });
+        
+        // Update the table with filtered results
+        const tableBody = document.getElementById('studentsTable');
+        tableBody.innerHTML = '';
+        
+        if (filteredStudents.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-muted">لا توجد نتائج مطابقة للبحث</td>
+                </tr>
+            `;
+            return;
+        }
+        
+        filteredStudents.forEach((student, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${student.name}</td>
+                <td>${student.studentId}</td>
+                <td>${student.parentName || '-'}</td>
+                <td>${getAcademicYearName(student.academicYear) || '-'}</td>
+                <td>${student.classes?.length || 0}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-primary btn-action" onclick="editStudent('${student._id}')">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger btn-action" onclick="deleteStudent('${student._id}')">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-success btn-action" onclick="showEnrollModal('${student._id}')">
+                        <i class="bi bi-book"></i>
+                    </button>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+    } catch (err) {
+        console.error('Error searching students:', err);
+        Swal.fire('خطأ', 'حدث خطأ أثناء البحث', 'error');
+    }
+}
+async function searchPayments() {
+    const searchTerm = document.getElementById('paymentSearchInput').value.trim().toLowerCase();
+    try {
+        let url = '/api/payments';
+        const studentId = document.getElementById('paymentStudentSelect').value;
+        const classId = document.getElementById('paymentClassSelect').value;
+        const month = document.getElementById('paymentMonthSelect').value;
+        
+        const params = [];
+        if (studentId) params.push(`student=${studentId}`);
+        if (classId) params.push(`class=${classId}`);
+        if (month) params.push(`month=${month}`);
+        
+        if (params.length > 0) {
+            url += `?${params.join('&')}`;
+        }
+        
+        const response = await fetch(url, {
+            headers: getAuthHeaders()
+        });
+        
+        if (response.status === 401) {
+            logout();
+            return;
+        }
+        
+        let payments = await response.json();
+        
+        // Filter payments based on search term
+        const filteredPayments = payments.filter(payment => {
+            // If search term is empty, show all payments
+            if (!searchTerm) return true;
+            
+            // Check if search term matches any payment property
+            return (
+                (payment.student?.name && payment.student.name.toLowerCase().includes(searchTerm)) ||
+                (payment.student?.studentId && payment.student.studentId.toLowerCase().includes(searchTerm)) ||
+                (payment.class?.name && payment.class.name.toLowerCase().includes(searchTerm)) ||
+                (payment.month && payment.month.toLowerCase().includes(searchTerm)) ||
+                (payment.amount && payment.amount.toString().includes(searchTerm)) ||
+                (payment.status && payment.status.toLowerCase().includes(searchTerm))
+            );
+        });
+        
+        // Update the table with filtered results
+        const tableBody = document.getElementById('paymentsTable');
+        tableBody.innerHTML = '';
+        
+        if (filteredPayments.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-4 text-muted">لا توجد نتائج مطابقة للبحث</td>
+                </tr>
+            `;
+            return;
+        }
+        
+        filteredPayments.forEach((payment, index) => {
+            const row = document.createElement('tr');
+            row.classList.add(`payment-${payment.status}`);
+            
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${payment.student?.name || 'غير معروف'} (${payment.student?.studentId || 'غير معروف'})</td>
+                <td>${payment.class?.name || 'غير معروف'}</td>
+                <td>${payment.month}</td>
+                <td>${payment.amount} د.ك</td>
+                <td>
+                    <span class="badge ${payment.status === 'paid' ? 'bg-success' : 
+                                     payment.status === 'pending' ? 'bg-warning' : 'bg-danger'}">
+                        ${payment.status === 'paid' ? 'مسدد' : 
+                         payment.status === 'pending' ? 'قيد الانتظار' : 'متأخر'}
+                    </span>
+                </td>
+                <td>${payment.paymentDate ? new Date(payment.paymentDate).toLocaleDateString('ar-EG') : '-'}</td>
+                <td>
+                    <button class="btn btn-sm ${payment.status !== 'paid' ? 'btn-success' : 'btn-secondary'} btn-action" 
+                        onclick="showPaymentModal('${payment._id}')" 
+                        ${payment.status === 'paid' ? 'disabled' : ''}>
+                        <i class="bi bi-cash"></i>
+                    </button>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+    } catch (err) {
+        console.error('Error searching payments:', err);
+        Swal.fire('خطأ', 'حدث خطأ أثناء البحث', 'error');
+    }
+}
+
+// Keep only one version of showPaymentModal (the more complete one)
+window.showPaymentModal = async function(paymentId) {
+    try {
+        const paymentResponse = await fetch(`/api/payments/${paymentId}`, {
+            headers: getAuthHeaders()
+        });
+        
+        if (paymentResponse.status === 401) {
+            logout();
+            return;
+        }
+        
+        const payment = await paymentResponse.json();
+        
+        const { value: formValues } = await Swal.fire({
+            title: 'تسديد الدفعة',
+            html: `
+                <div class="payment-modal-container p-3">
+                    <div class="mb-3">
+                        <label class="form-label">الطالب:</label>
+                        <input type="text" class="form-control" value="${payment.student?.name || 'غير معروف'}" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الحصة:</label>
+                        <input type="text" class="form-control" value="${payment.class?.name || 'غير معروف'}" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">الشهر:</label>
+                        <input type="text" class="form-control" value="${payment.month || 'غير محدد'}" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">المبلغ:</label>
+                        <input type="text" class="form-control" value="${payment.amount || 0} د.ك" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">تاريخ الدفع:</label>
+                        <input type="date" id="payment-date" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">طريقة الدفع:</label>
+                        <select id="payment-method" class="form-select" required>
+                            <option value="cash">نقدي</option>
+                            <option value="bank">حوالة بنكية</option>
+                            <option value="online">دفع إلكتروني</option>
+                        </select>
+                    </div>
+                </div>
+            `,
+            focusConfirm: false,
+            showCancelButton: true,
+            confirmButtonText: 'تأكيد الدفع',
+            cancelButtonText: 'إلغاء',
+            preConfirm: () => {
+                return {
+                    paymentDate: document.getElementById('payment-date').value,
+                    paymentMethod: document.getElementById('payment-method').value
+                };
+            }
+        });
+        
+        if (formValues) {
+            // Set default payment date to today if not provided
+            if (!formValues.paymentDate) {
+                formValues.paymentDate = new Date().toISOString().split('T')[0];
+            }
+            
+            const response = await fetch(`/api/payments/${paymentId}/pay`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
+                },
+                body: JSON.stringify(formValues)
+            });
+            
+            if (response.ok) {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'تم التسديد بنجاح',
+                    text: 'تم تسجيل الدفعة بنجاح',
+                    confirmButtonText: 'حسناً'
+                });
+                
+                // Refresh the students view
+                if (payment.class?._id) {
+                    showClassStudents(payment.class._id);
+                }
+            } else {
+                throw new Error('فشل في تسجيل الدفعة');
+            }
+        }
+    } catch (err) {
+        console.error('Error:', err);
+        Swal.fire({
+            icon: 'error',
+            title: 'خطأ',
+            text: 'حدث خطأ أثناء محاولة تسجيل الدفعة',
+            confirmButtonText: 'حسناً'
+        });
+    }
+};
+
+// Keep only one version of unenrollStudent
+window.unenrollStudent = async function(classId, studentId) {
+    try {
+        const { isConfirmed } = await Swal.fire({
+            title: 'هل أنت متأكد؟',
+            text: 'سيتم إزالة الطالب من الحصة وحذف مدفوعاته',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'نعم، إزالة',
+            cancelButtonText: 'إلغاء'
+        });
+        
+        if (isConfirmed) {
+            const response = await fetch(`/api/classes/${classId}/unenroll/${studentId}`, {
+                method: 'DELETE',
+                headers: getAuthHeaders()
+            });
+            
+            if (response.status === 401) {
+                logout();
+                return;
+            }
+            
+            if (response.ok) {
+                Swal.fire('نجاح', 'تم إزالة الطالب من الحصة بنجاح', 'success');
+                showClassStudents(classId);
+                loadClasses();
+                loadStudents();
+            } else {
+                const error = await response.json();
+                Swal.fire('خطأ', error.error, 'error');
+            }
+        }
+    } catch (err) {
+        console.error('Error:', err);
+        Swal.fire('خطأ', 'حدث خطأ أثناء إزالة الطالب', 'error');
+    }
+};
+
+async function searchCards() {
+    const searchTerm = document.getElementById('cardSearchInput').value.trim().toLowerCase();
+    const tableBody = document.getElementById('cardsTable');
+    tableBody.innerHTML = `
+        <tr>
+            <td colspan="5" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">جاري التحميل...</span>
+                </div>
+            </td>
+        </tr>
+    `;
+    try {
+        const response = await fetch('/api/cards', {
+            headers: getAuthHeaders()
+        });
+        
+        if (response.status === 401) {
+            logout();
+            return;
+        }
+        
+        const cards = await response.json();
+        
+        // Filter cards based on search term
+        const filteredCards = cards.filter(card => {
+            // If search term is empty, show all cards
+            if (!searchTerm) return true;
+            
+            // Check if search term matches any card or student property
+            return (
+                (card.uid && card.uid.toLowerCase().includes(searchTerm)) ||
+                (card.student?.name && card.student.name.toLowerCase().includes(searchTerm)) ||
+                (card.student?.studentId && card.student.studentId.toLowerCase().includes(searchTerm)) ||
+                (card.issueDate && new Date(card.issueDate).toLocaleDateString('ar-EG').includes(searchTerm))
+            );
+        });
+        
+        // Update the table with filtered results
+        const tableBody = document.getElementById('cardsTable');
+        tableBody.innerHTML = '';
+        
+        if (filteredCards.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center py-4 text-muted">لا توجد نتائج مطابقة للبحث</td>
+                </tr>
+            `;
+            return;
+        }
+        
+        filteredCards.forEach((card, index) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${card.uid}</td>
+                <td>${card.student?.name || 'غير معين'} (${card.student?.studentId || 'غير معين'})</td>
+                <td>${card.issueDate ? new Date(card.issueDate).toLocaleDateString('ar-EG') : 'غير معروف'}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-danger btn-action" onclick="deleteCard('${card._id}')">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            `;
+            tableBody.appendChild(row);
+        });
+    } catch (err) {
+        console.error('Error searching cards:', err);
+        Swal.fire('خطأ', 'حدث خطأ أثناء البحث في البطاقات', 'error');
+    }
+}
