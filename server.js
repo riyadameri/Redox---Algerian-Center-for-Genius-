@@ -40,15 +40,35 @@ const userSchema = new mongoose.Schema({
 
 const studentSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  studentId: { type: String, required: true, unique: true },
+  studentId: { type: String, unique: true },
   birthDate: Date,
   parentName: String,
-  parentPhone: String,
-  parentEmail: String,
+  parentPhone: { type: String, required: true },
+  parentEmail: { type: String, required: false },
   registrationDate: { type: Date, default: Date.now },
-  active: { type: Boolean, default: true },
-  academicYear: { type: String, enum: ['1AS', '2AS', '3AS', '1MS', '2MS', '3MS', '4MS', '5MS'] },
-  classes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Class' }]
+  active: { type: Boolean, default: true }, // Changed default to false
+  academicYear: { 
+    type: String, 
+    enum: ['1AS', '2AS', '3AS', '1MS', '2MS', '3MS', '4MS', '5MS'],
+    required: true
+  },
+  new : { type: Boolean, default: true }, 
+  classes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Class' }],
+  status: { 
+    type: String, 
+    enum: ['pending', 'active', 'inactive', 'banned'], 
+    default: 'pending' // New status for registration flow
+  },
+  registrationData: { // Store additional registration info
+    address: String,
+    previousSchool: String,
+    healthInfo: String,
+    documents: [{
+      name: String,
+      url: String,
+      verified: { type: Boolean, default: false }
+    }]
+  }
 }, { strictPopulate: false });
 
 const teacherSchema = new mongoose.Schema({
@@ -425,29 +445,56 @@ app.post('/api/users', async (req, res) => {
 });
 
 // Students
+// get only active students
 app.get('/api/students', /* authenticate(['admin', 'secretary', 'accountant']), */ async (req, res) => {
   try {
     const { academicYear, active } = req.query;
-    const query = {};
 
-    if (academicYear) query.academicYear = academicYear;
-    if (active) query.active = active === 'true';
+//   if (academicYear) query.academicYear = academicYear;
+    if (active) query.active = active === true;
 
-    const students = await Student.find(query).sort({ name: 1 });
+    const students = await Student.find({status : 'active' }).sort({ name: 1 });
+
     res.json(students);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+//get all students
+app.get('/api/allstudents',/* authenticate(['admin', 'secretary', 'accountant']), */ ()=>{
+  try {
+    const students = Student.find();
+    res.json(students);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+})
+// activate student
+app.put('/api/students/:id/activate', authenticate(['admin', 'secretary']), async (req, res) => {
+  try {
+    const student = await Student.findById(req.params.id);
+    if (!student) return res.status(404).json({ error: 'الطالب غير موجود' });
+    student.active = true;
+    await student.save();
+    res.json(student);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 app.post('/api/students', authenticate(['admin', 'secretary']), async (req, res) => {
   try {
     const student = new Student(req.body);
+    console.log(student) ;
+
+
     await student.save();
     res.status(201).json(student);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
+  
 });
 
 app.get('/api/students/:id', /* authenticate(['admin', 'secretary', 'accountant']),*/ async (req, res) => {
@@ -1377,14 +1424,159 @@ app.get('/api/live-classes/:classId/report', authenticate(['admin', 'secretary',
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+// Student Registration
+// Student Registration
+
+app.post('/api/student/register', async (req, res) => {
+    try {
+        const student = await Student.create(req.body);
+        res.json(student);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
+// Student Login (for checking status)
+app.post('/api/student/login', async (req, res) => {
+    try {
+      
+        const { parentPhone, studentId } = req.body;
+        const student = await Student.findOne({ 
+            $or: [
+                { studentId },
+                { 'registrationData.tempId': studentId }
+            ],
+            parentPhone
+        });
+
+        if (!student) {
+            return res.status(404).json({ error: 'الطالب غير مسجل أو رقم الهاتف غير صحيح' });
+        }
+
+        res.json({
+            status: student.status,
+            studentId: student._id,
+            name: student.name
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Add this to your server code (app.js)
+app.get('/api/registration-requests',  async (req, res) => {
+  try {
+      const { status } = req.query;
+      const query = {};
+
+      if (status) {
+          query.status = status;
+      } else {
+          query.status = 'pending'; // Default to pending if no status specified
+      }
+
+      const students = await Student.find(query)
+          .sort({ registrationDate: -1 });
+
+      res.json(students);
+  } catch (err) {
+      res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/registration-requests/:id', authenticate(['admin']), async (req, res) => {
+  try {
+      const student = await Student.findById(req.params.id);
+      res.json(student);
+  } catch (err) {
+      res.status(500).json({ error: err.message });
+  }
+})
+
+
+
+// Approve Student
+app.put('/api/admin/approve-student/:id', authenticate(['admin']), async (req, res) => {
+    try {
+        // Generate official student ID
+        const year = new Date().getFullYear().toString().slice(-2);
+        const randomNum = Math.floor(1000 + Math.random() * 9000);
+        const studentId = `STU-${year}-${randomNum}`;
+
+        const student = await Student.findByIdAndUpdate(
+            req.params.id,
+            {
+                status: 'active',
+                active: true,
+                studentId,
+                $unset: { 'registrationData.tempId': 1 }
+            },
+            { new: true }
+        );
+
+        // Send approval notification
+        const smsContent = `تم قبول طلب تسجيل الطالب ${student.name}. الرقم الجامعي: ${studentId}. يمكن الآن تسجيل الدخول باستخدام هذا الرقم.`;
+        // await smsGateway.send(student.parentPhone, smsContent);
+
+        res.json({
+            message: 'تم تفعيل حساب الطالب بنجاح',
+            studentId: student.studentId
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Reject Student
+app.put('/api/admin/reject-student/:id', async (req, res) => {
+    try {
+        const { reason } = req.body;
+        const student = await Student.findByIdAndUpdate(
+            req.params.id,
+            { status: 'inactive', active: false },
+            { new: true }
+        );
+
+        // Send rejection notification
+        const smsContent = `نأسف لإعلامكم أن طلب تسجيل الطالب ${student.name} قد تم رفضه. السبب: ${reason || 'غير محدد'}.`;
+        // await smsGateway.send(student.parentPhone, smsContent);
+
+        res.json({ message: 'تم رفض طلب التسجيل' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
+
+
+
+
 initializeRFIDReader();
 
+
 // Serve frontend
-app.get('*', (req, res) => {
+app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-const PORT = process.env.PORT || 5000;
+app.get('/student', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'student.html'));
+});
+
+const PORT = process.env.PORT || 4200;
 server.listen(PORT, () => {
   console.log(` server is working on : http://localhost:${PORT}`);
 });
@@ -1408,3 +1600,6 @@ process.on('unhandledRejectionMonitor', (reason, p) => {
   console.error('Unhandled Rejection Monitor at:', p, 'reason:', reason);
   // application specific logging, throwing an error, or other logic here
 });
+
+
+
