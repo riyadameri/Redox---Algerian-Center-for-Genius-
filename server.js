@@ -19,8 +19,9 @@ const io = socketio(server);
 
 // Middleware
 app.use(cors({
-  origin: true,
-  credentials: true
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -40,7 +41,14 @@ const userSchema = new mongoose.Schema({
 
 const studentSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  studentId: { type: String, unique: true },
+  studentId: { 
+    type: String, 
+    unique: true,
+    default: function() {
+      // إنشاء معرف فريد عند الإنشاء
+      return 'STU-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+    }
+  },
   birthDate: Date,
   parentName: String,
   parentPhone: { type: String, required: true },
@@ -1429,81 +1437,80 @@ app.get('/api/live-classes/:classId/report', authenticate(['admin', 'secretary',
 
 
 
-
-
-
-
-
-
-// Student Registration
-// Student Registration
-
+// Student Registration Endpoint
 app.post('/api/student/register', async (req, res) => {
-    try {
-        const student = await Student.create(req.body);
-        res.json(student);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-
-// Student Login (for checking status)
-app.post('/api/student/login', async (req, res) => {
-    try {
-      
-        const { parentPhone, studentId } = req.body;
-        const student = await Student.findOne({ 
-            $or: [
-                { studentId },
-                { 'registrationData.tempId': studentId }
-            ],
-            parentPhone
-        });
-
-        if (!student) {
-            return res.status(404).json({ error: 'الطالب غير مسجل أو رقم الهاتف غير صحيح' });
-        }
-
-        res.json({
-            status: student.status,
-            studentId: student._id,
-            name: student.name
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Add this to your server code (app.js)
-app.get('/api/registration-requests',  async (req, res) => {
   try {
-      const { status } = req.query;
-      const query = {};
+    console.log('Received registration data:', req.body); // Debug log
 
-      if (status) {
-          query.status = status;
-      } else {
-          query.status = 'pending'; // Default to pending if no status specified
+    // تحقق من الحقول المطلوبة
+    const requiredFields = ['name', 'academicYear', 'parentName', 'parentPhone'];
+    for (const field of requiredFields) {
+      if (!req.body[field]) {
+        return res.status(400).json({ 
+          error: `حقل ${field} مطلوب` 
+        });
       }
+    }
 
-      const students = await Student.find(query)
-          .sort({ registrationDate: -1 });
+    // أنشئ سجل الطالب
+    const student = new Student({
+      name: req.body.name,
+      academicYear: req.body.academicYear,
+      parentName: req.body.parentName,
+      parentPhone: req.body.parentPhone,
+      birthDate: req.body.birthDate,
+      parentEmail: req.body.parentEmail,
+      address: req.body.address,
+      previousSchool: req.body.previousSchool,
+      healthInfo: req.body.healthInfo,
+      status: 'pending',
+      active: false,
+      registrationDate: new Date()
+    });
 
-      res.json(students);
+    // احفظ في قاعدة البيانات
+    await student.save();
+
+    console.log('Student registered successfully:', student); // Debug log
+
+    res.status(201).json({
+      message: 'تم استلام طلب التسجيل بنجاح',
+      studentId: student._id
+    });
+
   } catch (err) {
-      res.status(500).json({ error: err.message });
+    console.error('Registration error:', err);
+    
+    // أرسل رسالة خطأ أكثر تفصيلاً
+    res.status(500).json({ 
+      error: 'حدث خطأ أثناء تسجيل الطلب',
+      details: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 });
 
-app.get('/api/registration-requests/:id', authenticate(['admin']), async (req, res) => {
+// Get Registration Requests (Admin only)
+app.get('/api/registration-requests', authenticate(['admin']), async (req, res) => {
   try {
-      const student = await Student.findById(req.params.id);
-      res.json(student);
+    const { status } = req.query;
+    const query = { status: status || 'pending' };
+    
+    const requests = await Student.find(query)
+      .sort({ registrationDate: -1 });
+    
+    res.json(requests);
   } catch (err) {
-      res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
-})
+});
+
+
+
+
+
+
+
 
 
 
@@ -1527,8 +1534,15 @@ app.put('/api/admin/approve-student/:id', authenticate(['admin']), async (req, r
         );
 
         // Send approval notification
-        const smsContent = `تم قبول طلب تسجيل الطالب ${student.name}. الرقم الجامعي: ${studentId}. يمكن الآن تسجيل الدخول باستخدام هذا الرقم.`;
+        // const smsContent = `تم قبول طلب تسجيل الطالب ${student.name}. الرقم الجامعي: ${studentId}. يمكن الآن تسجيل الدخول باستخدام هذا الرقم.`;
         // await smsGateway.send(student.parentPhone, smsContent);
+    io.to(`student-${student.studentId}`).emit('registration-update', {
+      studentId: student.studentId,
+      status: 'active',
+      name: student.name,
+      registrationDate: student.registrationDate
+    });
+
 
         res.json({
             message: 'تم تفعيل حساب الطالب بنجاح',
@@ -1550,14 +1564,67 @@ app.put('/api/admin/reject-student/:id', async (req, res) => {
         );
 
         // Send rejection notification
-        const smsContent = `نأسف لإعلامكم أن طلب تسجيل الطالب ${student.name} قد تم رفضه. السبب: ${reason || 'غير محدد'}.`;
+        // const smsContent = `نأسف لإعلامكم أن طلب تسجيل الطالب ${student.name} قد تم رفضه. السبب: ${reason || 'غير محدد'}.`;
         // await smsGateway.send(student.parentPhone, smsContent);
-
+        io.to(`student-${student.studentId}`).emit('registration-update', {
+          studentId: student.studentId,
+          status: 'inactive',
+          name: student.name,
+          registrationDate: student.registrationDate,
+          reason: req.body.reason
+        });
         res.json({ message: 'تم رفض طلب التسجيل' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
+
+// Add this endpoint
+app.post('/api/student/status', async (req, res) => {
+  try {
+    const { studentId, parentPhone } = req.body;
+    const student = await Student.findOne({ 
+      studentId,
+      parentPhone 
+    });
+
+    if (!student) {
+      return res.status(404).json({ error: 'لم يتم العثور على الطالب' });
+    }
+
+    // Subscribe client to updates for this student
+    const socketId = req.headers['socket-id'];
+    if (socketId && io.sockets.sockets[socketId]) {
+      io.sockets.sockets[socketId].join(`student-${studentId}`);
+    }
+
+    res.json({
+      name: student.name,
+      studentId: student.studentId,
+      status: student.status,
+      registrationDate: student.registrationDate,
+      academicYear: student.academicYear
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+
+  socket.on('subscribe-to-status', (studentId) => {
+    socket.join(`student-${studentId}`);
+    console.log(`Client subscribed to student ${studentId}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+  });
+});
+
 
 
 

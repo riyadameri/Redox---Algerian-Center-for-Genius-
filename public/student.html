@@ -292,26 +292,26 @@
             });
             
             try {
-                const response = await fetch('localhost:4200/student/register', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(data)
-                });
-                
-                const result = await response.json();
-                
-                if (response.ok) {
-                    showMessage('register-message', 'تم تسجيل الطالب بنجاح. سيتم مراجعة البيانات وإعلامكم بالنتيجة.', 'success');
-                    document.getElementById('registration-form').reset();
-                } else {
-                    showMessage('register-message', result.error || 'حدث خطأ أثناء التسجيل', 'error');
-                }
-            } catch (error) {
-                showMessage('register-message', 'حدث خطأ في الاتصال بالخادم', 'error');
-                console.error('Error:', error);
-            }
+    const response = await fetch('http://localhost:4200/api/student/register', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    });
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+        throw new Error(result.error || 'حدث خطأ أثناء التسجيل');
+    }
+    
+    showMessage('register-message', 'تم تسجيل الطالب بنجاح. سيتم مراجعة البيانات وإعلامكم بالنتيجة.', 'success');
+    document.getElementById('registration-form').reset();
+} catch (error) {
+    showMessage('register-message', error.message, 'error');
+    console.error('Error:', error);
+}
         });
         
         // Status check form submission
@@ -322,7 +322,7 @@
             const parentPhone = document.getElementById('statusPhone').value;
             
             try {
-                const response = await fetch('localhost:4200/student/login', {
+                const response = await fetch('http://localhost:4200/api/student/login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
