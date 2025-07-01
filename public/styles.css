@@ -1834,3 +1834,76 @@ span{
 .badge.bg-warning {
   color: #000;
 }
+
+
+
+
+/* Student Accounts Management */
+#student-accounts .table th, 
+#student-accounts .table td {
+    vertical-align: middle;
+}
+
+.account-checkbox {
+    cursor: pointer;
+}
+
+#bulkActionsBtn {
+    position: relative;
+}
+
+#bulkActionsMenu {
+    min-width: 200px;
+}
+
+/* Status badges */
+.badge.bg-success {
+    background-color: #28a745 !important;
+}
+
+.badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #212529;
+}
+
+.badge.bg-danger {
+    background-color: #dc3545 !important;
+}
+
+.badge.bg-info {
+    background-color: #17a2b8 !important;
+}
+
+/* Responsive tables */
+@media (max-width: 768px) {
+    #student-accounts .table-responsive {
+        overflow-x: auto;
+    }
+    
+    #studentAccountsTable tr {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 1rem;
+        border: 1px solid #dee2e6;
+    }
+    
+    #studentAccountsTable td {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 1rem;
+        border-top: none;
+    }
+    
+    #studentAccountsTable td::before {
+        content: attr(data-label);
+        font-weight: bold;
+        margin-right: 1rem;
+    }
+    
+    #studentAccountsTable td:first-child {
+        border-top: 1px solid #dee2e6;
+    }
+}
+#student-accounts {
+  display: block !important;
+}

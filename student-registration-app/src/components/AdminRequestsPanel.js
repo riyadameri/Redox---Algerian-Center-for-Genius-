@@ -36,7 +36,7 @@ const AdminRequestsPanel = () => {
   useEffect(() => {
     const fetchRequests = async () => {
       try {
-        const response = await axios.get('http://localhost:4200/api/registration-requests', {
+        const response = await axios.get('https://redox-sm.onrender.com/api/registration-requests', {
           params: { status: 'pending' }
         });
         setRequests(response.data);
@@ -56,7 +56,7 @@ const AdminRequestsPanel = () => {
     setActionSuccess(false);
 
     try {
-      await axios.put(`http://localhost:4200/api/admin/approve-student/${id}`);
+      await axios.put(`https://redox-sm.onrender.com/api/admin/approve-student/${id}`);
       setRequests(requests.filter(req => req._id !== id));
       setActionSuccess(true);
     } catch (err) {
@@ -74,7 +74,7 @@ const AdminRequestsPanel = () => {
     setActionSuccess(false);
 
     try {
-      await axios.put(`http://localhost:4200/api/admin/reject-student/${selectedRequest._id}`, {
+      await axios.put(`https://redox-sm.onrender.com/api/admin/reject-student/${selectedRequest._id}`, {
         reason: rejectionReason
       });
       setRequests(requests.filter(req => req._id !== selectedRequest._id));

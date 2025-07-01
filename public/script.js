@@ -127,8 +127,77 @@
             // Initialize the application
             function initApp() {
                 // Load initial data
-
+                loadStudentAccounts();
                 document.getElementById('cardSearchInput').addEventListener('input', searchCards);
+
+
+// Navigation between sections
+document.querySelectorAll('[data-section]').forEach(link => {
+    link.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        // Hide all sections
+        document.querySelectorAll('.content-section').forEach(section => {
+            section.classList.remove('active');
+        });
+        
+        // Remove active from all links
+        document.querySelectorAll('.nav-link').forEach(navLink => {
+            navLink.classList.remove('active');
+        });
+        
+        // Activate current link
+        this.classList.add('active');
+        
+        // Show requested section
+        const sectionId = this.getAttribute('data-section');
+        const section = document.getElementById(sectionId);
+        
+        if (section) {
+            section.classList.add('active');
+            
+            // Load data when needed
+            switch(sectionId) {
+                case 'students':
+                    loadStudents();
+                    break;
+                case 'teachers':
+                    loadTeachers();
+                    break;
+                case 'classes':
+                    loadClasses();
+                    break;
+                case 'classrooms':
+                    loadClassrooms();
+                    break;
+                case 'payments':
+                    loadStudentsForPayments();
+                    loadPayments();
+                    break;
+                case 'cards':
+                    loadStudentsForCards();
+                    loadCards();
+                    break;
+                case 'student-accounts':
+                    loadStudentAccounts();
+                    break;
+                case 'registration-requests':
+                    loadRegistrationRequests();
+                    break;
+                case 'live-classes':
+                    loadLiveClasses();
+                    break;
+                // Add other sections as needed
+                default:
+                    // Default case for any other sections
+                    break;
+            }
+        } else {
+            console.error('Section not found:', sectionId);
+        }
+    });
+});
+                
 
                 loadStudents();
                 loadTeachers();
@@ -3518,6 +3587,8 @@
 
 
 // Update the navigation between sections code to include the new section
+// Update the navigation between sections code to include the new section
+// Update the navigation between sections code to include the new section
 document.querySelectorAll('[data-section]').forEach(link => {
     link.addEventListener('click', function(e) {
         e.preventDefault();
@@ -3537,96 +3608,34 @@ document.querySelectorAll('[data-section]').forEach(link => {
         
         // Show requested section
         const sectionId = this.getAttribute('data-section');
-        document.getElementById(sectionId).classList.add('active');
-        
-        // Load data when needed
-        if (sectionId === 'students') loadStudents();
-        else if (sectionId === 'teachers') loadTeachers();
-        else if (sectionId === 'classes') loadClasses();
-        else if (sectionId === 'classrooms') loadClassrooms();
-        else if (sectionId === 'payments') {
-            loadStudentsForPayments();
-            loadPayments();
-        }
-        else if (sectionId === 'cards') {
-            loadStudentsForCards();
-            loadCards();
-        }
-        else if (sectionId === 'registration-requests') {
-            loadRegistrationRequests();
+        const section = document.getElementById(sectionId);
+        if (section) {
+            section.classList.add('active');
+            
+            // Load data when needed
+            if (sectionId === 'students') loadStudents();
+            else if (sectionId === 'teachers') loadTeachers();
+            else if (sectionId === 'classes') loadClasses();
+            else if (sectionId === 'classrooms') loadClassrooms();
+            else if (sectionId === 'payments') {
+                loadStudentsForPayments();
+                loadPayments();
+            }
+            else if (sectionId === 'cards') {
+                loadStudentsForCards();
+                loadCards();
+            }
+            else if (sectionId === 'student-accounts') {
+                loadStudentAccounts();
+            }
+            else if (sectionId === 'registration-requests') {
+                loadRegistrationRequests();
+            }
+        } else {
+            console.error('Section not found:', sectionId);
         }
     });
 });
-    // Load registration requests
-// Update the loadRegistrationRequests function
-// Update the loadRegistrationRequests function
-async function loadRegistrationRequests() {
-    try {
-        const status = document.getElementById('requestStatusFilter').value;
-        
-        const response = await fetch(`/api/registration-requests?status=${status}`, {
-            headers: getAuthHeaders()
-        });
-
-        if (response.status === 401) {
-            logout();
-            return;
-        }
-        
-        const students = await response.json();
-        
-        const tableBody = document.getElementById('registrationRequestsTable');
-        tableBody.innerHTML = '';
-        
-        if (students.length === 0) {
-            tableBody.innerHTML = `
-                <tr>
-                    <td colspan="9" class="text-center py-4 text-muted">لا توجد طلبات متاحة</td>
-                </tr>
-            `;
-            return;
-        }
-        
-        students.forEach((student, index) => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${index + 1}</td>
-                <td>${student.name}</td>
-                <td>${student.parentName || '-'}</td>
-                <td>${student.parentPhone || '-'}</td>
-                <td>${student.parentEmail || '-'}</td>
-                <td>${getAcademicYearName(student.academicYear) || '-'}</td>
-                <td>${new Date(student.registrationDate).toLocaleDateString('ar-EG')}</td>
-                <td>
-                    <span class="badge ${student.status === 'active' ? 'bg-success' : 
-                                      student.status === 'pending' ? 'bg-warning' : 'bg-danger'}">
-                        ${student.status === 'active' ? 'مقبول' : 
-                         student.status === 'pending' ? 'قيد الانتظار' : 'مرفوض'}
-                    </span>
-                </td>
-                <td>
-                    <div class="btn-group">
-                        <button class="btn btn-sm btn-outline-primary" onclick="viewRegistrationDetails('${student._id}')">
-                            <i class="bi bi-eye"></i>
-                        </button>
-                        ${student.status === 'pending' ? `
-                            <button class="btn btn-sm btn-success" onclick="approveRegistration('${student._id}')">
-                                <i class="bi bi-check-lg"></i>
-                            </button>
-                            <button class="btn btn-sm btn-danger" onclick="rejectRegistration('${student._id}')">
-                                <i class="bi bi-x-lg"></i>
-                            </button>
-                        ` : ''}
-                    </div>
-                </td>
-            `;
-            tableBody.appendChild(row);
-        });
-    } catch (err) {
-        console.error('Error loading registration requests:', err);
-        Swal.fire('خطأ', 'حدث خطأ أثناء تحميل طلبات التسجيل', 'error');
-    }
-}
 
 
 
@@ -3780,3 +3789,13 @@ async function rejectRegistration(studentId) {
         Swal.fire('خطأ', 'حدث خطأ أثناء محاولة رفض الطلب', 'error');
     }
 }
+
+
+
+
+
+
+
+
+
+

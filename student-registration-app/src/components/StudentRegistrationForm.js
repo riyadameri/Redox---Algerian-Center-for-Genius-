@@ -16,10 +16,112 @@ import {
   DialogActions,
   useMediaQuery,
   useTheme,
-  Paper // Added missing import
+  Paper,
+  styled,
+  InputAdornment
 } from '@mui/material';
+import PhoneIcon from '@mui/icons-material/Phone';
+import EmailIcon from '@mui/icons-material/Email';
+import PersonIcon from '@mui/icons-material/Person';
+import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
+import SchoolIcon from '@mui/icons-material/School';
+import HomeIcon from '@mui/icons-material/Home';
+import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
 import axios from 'axios';
 import { SocketContext } from '../App';
+
+// Custom styled components
+const CenteredContainer = styled(Container)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minHeight: '100vh',
+  padding: theme.spacing(3),
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(2),
+  },
+}));
+
+const FormPaper = styled(Paper)(({ theme }) => ({
+  width: '100%',
+  maxWidth: 800,
+  padding: theme.spacing(4),
+  borderRadius: theme.shape.borderRadius * 2,
+  boxShadow: theme.shadows[3],
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(3),
+  },
+}));
+
+const FormTitle = styled(Typography)(({ theme }) => ({
+  marginBottom: theme.spacing(4),
+  color: theme.palette.primary.main,
+  fontWeight: 700,
+  textAlign: 'center',
+  [theme.breakpoints.down('sm')]: {
+    fontSize: '1.5rem',
+    marginBottom: theme.spacing(3),
+  },
+}));
+
+const FormGrid = styled(Grid)(({ theme }) => ({
+  width: '100%',
+  justifyContent: 'center',
+}));
+
+const FormTextField = styled(TextField)(({ theme }) => ({
+  marginBottom: theme.spacing(2),
+  '& .MuiInputBase-root': {
+    borderRadius: theme.shape.borderRadius * 2,
+  },
+}));
+
+const SubmitButton = styled(Button)(({ theme }) => ({
+  padding: theme.spacing(1.5),
+  fontSize: '1rem',
+  fontWeight: 600,
+  marginTop: theme.spacing(3),
+  borderRadius: theme.shape.borderRadius * 2,
+  width: '100%',
+  maxWidth: 400,
+}));
+
+const StatusPaper = styled(Paper)(({ theme }) => ({
+  width: '100%',
+  maxWidth: 600,
+  padding: theme.spacing(4),
+  marginBottom: theme.spacing(4),
+  borderRadius: theme.shape.borderRadius * 2,
+  background: theme.palette.grey[50],
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  [theme.breakpoints.down('sm')]: {
+    padding: theme.spacing(3),
+  },
+}));
+
+const StatusItem = styled(Box)(({ theme }) => ({
+  width: '100%',
+  display: 'flex',
+  justifyContent: 'space-between',
+  marginBottom: theme.spacing(2),
+  [theme.breakpoints.down('sm')]: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    textAlign: 'center',
+  },
+}));
+
+const StatusLabel = styled('span')(({ theme }) => ({
+  fontWeight: 600,
+  marginRight: theme.spacing(1),
+  color: theme.palette.text.secondary,
+}));
 
 const StudentRegistrationForm = () => {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -32,14 +134,18 @@ const StudentRegistrationForm = () => {
 
   const validationSchema = Yup.object().shape({
     name: Yup.string().required('اسم الطالب مطلوب'),
-    birthDate: Yup.date().required('تاريخ الميلاد مطلوب'),
+    birthDate: Yup.date()
+      .required('تاريخ الميلاد مطلوب')
+      .max(new Date(), 'تاريخ الميلاد لا يمكن أن يكون في المستقبل'),
     academicYear: Yup.string().required('السنة الدراسية مطلوبة'),
     parentName: Yup.string().required('اسم ولي الأمر مطلوب'),
     parentPhone: Yup.string()
       .required('رقم هاتف ولي الأمر مطلوب')
-      .matches(/^[0-9]+$/, 'يجب أن يحتوي على أرقام فقط'),
+      .matches(/^[0-9]+$/, 'يجب أن يحتوي على أرقام فقط')
+      .min(10, 'يجب أن يحتوي على 10 أرقام على الأقل')
+      .max(15, 'يجب ألا يتجاوز 15 رقماً'),
     parentEmail: Yup.string().email('البريد الإلكتروني غير صالح'),
-    address: Yup.string().required('العنوان مطلوب'),
+    address: Yup.string().required('العنوان مطلوب').min(10, 'العنوان قصير جداً'),
     previousSchool: Yup.string(),
     healthInfo: Yup.string()
   });
@@ -62,7 +168,7 @@ const StudentRegistrationForm = () => {
       setSubmitError(null);
       
       try {
-        const response = await axios.post('http://localhost:4200/api/student/register', values);
+        const response = await axios.post('https://redox-sm.onrender.com/api/student/register', values);
         const studentData = {
           ...response.data,
           parentPhone: values.parentPhone
@@ -133,27 +239,35 @@ const StudentRegistrationForm = () => {
 
   if (registrationData) {
     return (
-      <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-        <Paper elevation={3} sx={{ p: isMobile ? 2 : 3 }}>
-          <Typography variant="h5" component="h2" gutterBottom align="center">
+      <CenteredContainer>
+        <FormPaper elevation={3}>
+          <FormTitle variant="h4" component="h1">
             حالة طلب التسجيل
-          </Typography>
+          </FormTitle>
           
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="body1" gutterBottom>
-              <strong>اسم الطالب:</strong> {registrationData.name}
-            </Typography>
-            <Typography variant="body1" gutterBottom>
-              <strong>السنة الدراسية:</strong> {academicYears.find(y => y.value === registrationData.academicYear)?.label}
-            </Typography>
-            <Typography variant="body1" gutterBottom>
-              <strong>رقم الطالب:</strong> {registrationData.studentId || 'قيد المراجعة'}
-            </Typography>
-            <Typography variant="body1" gutterBottom>
-              <strong>تاريخ التسجيل:</strong> {new Date(registrationData.registrationDate || new Date()).toLocaleDateString()}
-            </Typography>
-            <Typography variant="body1" gutterBottom>
-              <strong>الحالة:</strong> 
+          <StatusPaper elevation={0}>
+            <StatusItem>
+              <StatusLabel>اسم الطالب:</StatusLabel>
+              <span>{registrationData.name}</span>
+            </StatusItem>
+            
+            <StatusItem>
+              <StatusLabel>السنة الدراسية:</StatusLabel>
+              <span>{academicYears.find(y => y.value === registrationData.academicYear)?.label}</span>
+            </StatusItem>
+            
+            <StatusItem>
+              <StatusLabel>رقم الطالب:</StatusLabel>
+              <span>{registrationData.studentId || 'قيد المراجعة'}</span>
+            </StatusItem>
+            
+            <StatusItem>
+              <StatusLabel>تاريخ التسجيل:</StatusLabel>
+              <span>{new Date(registrationData.registrationDate || new Date()).toLocaleDateString()}</span>
+            </StatusItem>
+            
+            <StatusItem>
+              <StatusLabel>الحالة:</StatusLabel>
               {registrationData.status === 'pending' && (
                 <Box component="span" color="warning.main"> قيد المراجعة</Box>
               )}
@@ -166,55 +280,64 @@ const StudentRegistrationForm = () => {
               {!registrationData.status && (
                 <Box component="span" color="text.secondary"> قيد المعالجة</Box>
               )}
-            </Typography>
-          </Box>
+            </StatusItem>
+          </StatusPaper>
 
-          <Button
-            variant="outlined"
-            fullWidth
+          <SubmitButton
+            variant="contained"
             onClick={() => {
               localStorage.removeItem('studentRegistration');
               setRegistrationData(null);
             }}
+            startIcon={<SchoolIcon />}
           >
             تسجيل طلب جديد
-          </Button>
-        </Paper>
-      </Container>
+          </SubmitButton>
+        </FormPaper>
+      </CenteredContainer>
     );
   }
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom align="center">
+    <CenteredContainer>
+      <FormPaper elevation={3}>
+        <FormTitle variant="h4" component="h1">
           نموذج تسجيل الطالب
-        </Typography>
+        </FormTitle>
         
         {submitError && (
-          <Alert severity="error" sx={{ mb: 3 }}>
+          <Alert severity="error" sx={{ width: '100%', mb: 3 }}>
             {submitError}
           </Alert>
         )}
 
-        <form onSubmit={formik.handleSubmit}>
-          <Grid container spacing={isMobile ? 1 : 3}>
-            <Grid item xs={12} md={6}>
-              <TextField
+        <Box component="form" onSubmit={formik.handleSubmit} sx={{ width: '100%' }}>
+          <FormGrid container spacing={isMobile ? 2 : 3}>
+            {/* Student Name */}
+            <Grid item xs={12} md={10}>
+              <FormTextField
                 fullWidth
                 id="name"
                 name="name"
                 label="اسم الطالب"
                 value={formik.values.name}
                 onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
                 error={formik.touched.name && Boolean(formik.errors.name)}
                 helperText={formik.touched.name && formik.errors.name}
-                size={isMobile ? 'small' : 'medium'}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PersonIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Grid>
             
-            <Grid item xs={12} md={6}>
-              <TextField
+            {/* Birth Date */}
+            <Grid item xs={12} md={10}>
+              <FormTextField
                 fullWidth
                 id="birthDate"
                 name="birthDate"
@@ -223,14 +346,22 @@ const StudentRegistrationForm = () => {
                 InputLabelProps={{ shrink: true }}
                 value={formik.values.birthDate}
                 onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
                 error={formik.touched.birthDate && Boolean(formik.errors.birthDate)}
                 helperText={formik.touched.birthDate && formik.errors.birthDate}
-                size={isMobile ? 'small' : 'medium'}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <CalendarTodayIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Grid>
             
-            <Grid item xs={12} md={6}>
-              <TextField
+            {/* Academic Year */}
+            <Grid item xs={12} md={10}>
+              <FormTextField
                 fullWidth
                 id="academicYear"
                 name="academicYear"
@@ -239,9 +370,16 @@ const StudentRegistrationForm = () => {
                 SelectProps={{ native: true }}
                 value={formik.values.academicYear}
                 onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
                 error={formik.touched.academicYear && Boolean(formik.errors.academicYear)}
                 helperText={formik.touched.academicYear && formik.errors.academicYear}
-                size={isMobile ? 'small' : 'medium'}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SchoolIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
               >
                 <option value=""></option>
                 {academicYears.map((option) => (
@@ -249,39 +387,56 @@ const StudentRegistrationForm = () => {
                     {option.label}
                   </option>
                 ))}
-              </TextField>
+              </FormTextField>
             </Grid>
             
-            <Grid item xs={12} md={6}>
-              <TextField
+            {/* Parent Name */}
+            <Grid item xs={12} md={10}>
+              <FormTextField
                 fullWidth
                 id="parentName"
                 name="parentName"
                 label="اسم ولي الأمر"
                 value={formik.values.parentName}
                 onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
                 error={formik.touched.parentName && Boolean(formik.errors.parentName)}
                 helperText={formik.touched.parentName && formik.errors.parentName}
-                size={isMobile ? 'small' : 'medium'}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PersonIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Grid>
             
-            <Grid item xs={12} md={6}>
-              <TextField
+            {/* Parent Phone */}
+            <Grid item xs={12} md={10}>
+              <FormTextField
                 fullWidth
                 id="parentPhone"
                 name="parentPhone"
                 label="رقم هاتف ولي الأمر"
                 value={formik.values.parentPhone}
                 onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
                 error={formik.touched.parentPhone && Boolean(formik.errors.parentPhone)}
                 helperText={formik.touched.parentPhone && formik.errors.parentPhone}
-                size={isMobile ? 'small' : 'medium'}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PhoneIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Grid>
             
-            <Grid item xs={12} md={6}>
-              <TextField
+            {/* Parent Email */}
+            <Grid item xs={12} md={10}>
+              <FormTextField
                 fullWidth
                 id="parentEmail"
                 name="parentEmail"
@@ -289,90 +444,132 @@ const StudentRegistrationForm = () => {
                 type="email"
                 value={formik.values.parentEmail}
                 onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
                 error={formik.touched.parentEmail && Boolean(formik.errors.parentEmail)}
                 helperText={formik.touched.parentEmail && formik.errors.parentEmail}
-                size={isMobile ? 'small' : 'medium'}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <EmailIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Grid>
             
-            <Grid item xs={12}>
-              <TextField
+            {/* Address */}
+            <Grid item xs={12} md={10}>
+              <FormTextField
                 fullWidth
                 id="address"
                 name="address"
                 label="العنوان"
                 multiline
-                rows={2}
+                rows={3}
                 value={formik.values.address}
                 onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
                 error={formik.touched.address && Boolean(formik.errors.address)}
                 helperText={formik.touched.address && formik.errors.address}
-                size={isMobile ? 'small' : 'medium'}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <HomeIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Grid>
             
-            <Grid item xs={12} md={6}>
-              <TextField
+            {/* Previous School */}
+            <Grid item xs={12} md={10}>
+              <FormTextField
                 fullWidth
                 id="previousSchool"
                 name="previousSchool"
                 label="المدرسة السابقة (إن وجدت)"
                 value={formik.values.previousSchool}
                 onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
                 error={formik.touched.previousSchool && Boolean(formik.errors.previousSchool)}
                 helperText={formik.touched.previousSchool && formik.errors.previousSchool}
-                size={isMobile ? 'small' : 'medium'}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SchoolIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Grid>
             
-            <Grid item xs={12} md={6}>
-              <TextField
+            {/* Health Info */}
+            <Grid item xs={12} md={10}>
+              <FormTextField
                 fullWidth
                 id="healthInfo"
                 name="healthInfo"
                 label="معلومات صحية خاصة"
                 value={formik.values.healthInfo}
                 onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
                 error={formik.touched.healthInfo && Boolean(formik.errors.healthInfo)}
                 helperText={formik.touched.healthInfo && formik.errors.healthInfo}
-                size={isMobile ? 'small' : 'medium'}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <MedicalServicesIcon color="action" />
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Grid>
             
-            <Grid item xs={12}>
-              <Button
+            {/* Submit Button */}
+            <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'center' }}>
+              <SubmitButton
                 type="submit"
                 variant="contained"
                 color="primary"
                 disabled={isSubmitting}
-                fullWidth
-                size={isMobile ? 'medium' : 'large'}
+                startIcon={isSubmitting ? <CircularProgress size={20} /> : <SchoolIcon />}
               >
-                {isSubmitting ? <CircularProgress size={24} /> : 'تسجيل الطلب'}
-              </Button>
+                {isSubmitting ? 'جاري التسجيل...' : 'تسجيل الطلب'}
+              </SubmitButton>
             </Grid>
-          </Grid>
-        </form>
-      </Box>
+          </FormGrid>
+        </Box>
+      </FormPaper>
 
-      <Dialog open={Boolean(statusUpdate)} onClose={handleCloseStatusUpdate}>
-        <DialogTitle>
+      {/* Status Update Dialog */}
+      <Dialog 
+        open={Boolean(statusUpdate)} 
+        onClose={handleCloseStatusUpdate}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle sx={{ textAlign: 'center' }}>
           {statusUpdate?.status === 'active' ? 'تم قبول طلبك' : 'تم رفض طلبك'}
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body1" gutterBottom>
+          <Typography variant="body1" gutterBottom sx={{ textAlign: 'center', mb: 2 }}>
             {statusUpdate?.status === 'active' 
               ? `مبروك! تم قبول طلب تسجيل الطالب ${statusUpdate.name}. الرقم الجامعي: ${statusUpdate.studentId}`
               : `نأسف لإعلامك أن طلب تسجيل الطالب ${statusUpdate?.name} قد تم رفضه. ${statusUpdate?.reason ? `السبب: ${statusUpdate.reason}` : ''}`}
           </Typography>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseStatusUpdate} color="primary">
+        <DialogActions sx={{ justifyContent: 'center', pb: 3 }}>
+          <Button 
+            onClick={handleCloseStatusUpdate} 
+            variant="contained"
+            color="primary"
+            sx={{ minWidth: 120 }}
+          >
             حسناً
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </CenteredContainer>
   );
 };
 

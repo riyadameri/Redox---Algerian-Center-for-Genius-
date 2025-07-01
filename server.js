@@ -1436,7 +1436,6 @@ app.get('/api/live-classes/:classId/report', authenticate(['admin', 'secretary',
 
 
 
-
 // Student Registration Endpoint
 app.post('/api/student/register', async (req, res) => {
   try {
@@ -1628,6 +1627,196 @@ io.on('connection', (socket) => {
 
 
 
+
+
+
+
+// Add these routes to your existing Express app
+
+// Get all student accounts with filtering
+app.get('/api/student-accounts', authenticate(['admin']), async (req, res) => {
+  try {
+    const { status, search, page = 1, limit = 10 } = req.query;
+    const query = {};
+    
+    if (status) query.status = status;
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { studentId: { $regex: search, $options: 'i' } },
+        { 'registrationData.email': { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    const options = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sort: { createdAt: -1 }
+    };
+    
+    const accounts = await Student.paginate(query, options);
+    res.json(accounts);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create student account
+app.post('/api/student-accounts', authenticate(['admin']), async (req, res) => {
+  try {
+    const { name, email, password, academicYear, parentInfo } = req.body;
+    
+    // Generate student ID
+    const studentId = 'STU-' + Date.now().toString().slice(-6);
+    
+    const student = new Student({
+      name,
+      studentId,
+      academicYear,
+      parentName: parentInfo?.name,
+      parentPhone: parentInfo?.phone,
+      parentEmail: email,
+      registrationData: {
+        email,
+        password: await bcrypt.hash(password, 10)
+      },
+      status: 'active'
+    });
+    
+    await student.save();
+    
+    res.status(201).json(student);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Update student account
+app.put('/api/student-accounts/:id', authenticate(['admin']), async (req, res) => {
+  try {
+    const { name, email, academicYear, parentInfo, status } = req.body;
+    
+    const updates = {
+      name,
+      academicYear,
+      parentName: parentInfo?.name,
+      parentPhone: parentInfo?.phone,
+      parentEmail: email,
+      status
+    };
+    
+    if (req.body.password) {
+      updates.registrationData.password = await bcrypt.hash(req.body.password, 10);
+    }
+    
+    const student = await Student.findByIdAndUpdate(
+      req.params.id,
+      { $set: updates },
+      { new: true }
+    );
+    
+    res.json(student);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Bulk actions
+app.post('/api/student-accounts/bulk-actions', authenticate(['admin']), async (req, res) => {
+  try {
+    const { action, studentIds } = req.body;
+    
+    let update;
+    switch (action) {
+      case 'activate':
+        update = { status: 'active' };
+        break;
+      case 'deactivate':
+        update = { status: 'inactive' };
+        break;
+      case 'delete':
+        await Student.deleteMany({ _id: { $in: studentIds } });
+        return res.json({ message: 'تم حذف الحسابات المحددة بنجاح' });
+      default:
+        return res.status(400).json({ error: 'إجراء غير صالح' });
+    }
+    
+    await Student.updateMany(
+      { _id: { $in: studentIds } },
+      update
+    );
+    
+    res.json({ message: `تم ${action === 'activate' ? 'تفعيل' : 'تعطيل'} الحسابات المحددة بنجاح` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+
+// Add this route to your Express app
+app.get('/api/student-accounts/export', authenticate(['admin']), async (req, res) => {
+  try {
+      const { status, search } = req.query;
+      const query = {};
+      
+      if (status) query.status = status;
+      if (search) {
+          query.$or = [
+              { name: { $regex: search, $options: 'i' } },
+              { studentId: { $regex: search, $options: 'i' } },
+              { 'registrationData.email': { $regex: search, $options: 'i' } }
+          ];
+      }
+      
+      const students = await Student.find(query)
+          .sort({ createdAt: -1 })
+          .lean();
+      
+      // Create Excel workbook
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('حسابات الطلاب');
+      
+      // Add headers
+      worksheet.columns = [
+          { header: 'رقم الطالب', key: 'studentId', width: 15 },
+          { header: 'اسم الطالب', key: 'name', width: 25 },
+          { header: 'البريد الإلكتروني', key: 'email', width: 25 },
+          { header: 'السنة الدراسية', key: 'academicYear', width: 15 },
+          { header: 'اسم ولي الأمر', key: 'parentName', width: 25 },
+          { header: 'هاتف ولي الأمر', key: 'parentPhone', width: 15 },
+          { header: 'حالة الحساب', key: 'status', width: 15 },
+          { header: 'تاريخ الإنشاء', key: 'createdAt', width: 20 }
+      ];
+      
+      // Add data rows
+      students.forEach(student => {
+          worksheet.addRow({
+              studentId: student.studentId,
+              name: student.name,
+              email: student.parentEmail,
+              academicYear: getAcademicYearName(student.academicYear),
+              parentName: student.parentName,
+              parentPhone: student.parentPhone,
+              status: getAccountStatusText(student.status),
+              createdAt: new Date(student.createdAt).toLocaleDateString('ar-EG')
+          });
+      });
+      
+      // Set response headers
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', 'attachment; filename=student_accounts.xlsx');
+      
+      // Send the workbook
+      await workbook.xlsx.write(res);
+      res.end();
+      
+  } catch (err) {
+      console.error('Export error:', err);
+      res.status(500).json({ error: 'حدث خطأ أثناء التصدير' });
+  }
+});
 
 
 
