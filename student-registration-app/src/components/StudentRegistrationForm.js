@@ -168,7 +168,7 @@ const StudentRegistrationForm = () => {
       setSubmitError(null);
       
       try {
-        const response = await axios.post('https://redox-sm.onrender.com/api/student/register', values);
+        const response = await axios.post(' /api/student/register', values);
         const studentData = {
           ...response.data,
           parentPhone: values.parentPhone

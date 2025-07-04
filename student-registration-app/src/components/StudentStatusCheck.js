@@ -23,7 +23,7 @@ const StudentStatusCheck = () => {
 
   // Initialize WebSocket connection
   useEffect(() => {
-    const newSocket = io('https://redox-sm.onrender.com');
+    const newSocket = io('https://localhost:4200.com');
     setSocket(newSocket);
 
     // Listen for status updates
@@ -55,7 +55,7 @@ const StudentStatusCheck = () => {
     setError(null);
 
     try {
-      const response = await axios.post('https://redox-sm.onrender.com/api/student/status', {
+      const response = await axios.post('https://localhost:4200.com/api/student/status', {
         studentId,
         parentPhone
       });

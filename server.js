@@ -20,9 +20,12 @@ const io = socketio(server);
 // Middleware
 app.use(cors({
   origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
+
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -38,6 +41,18 @@ const userSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
   active: { type: Boolean, default: true }
 });
+
+const StudentsAccountsSchema = new mongoose.Schema({
+  username: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  role: { type: String, enum: ['student'], required: true },
+  fullName: String,
+  phone: String,
+  email: String,
+  createdAt: { type: Date, default: Date.now },
+  active: { type: Boolean, default: true },
+  student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true }
+})
 
 const studentSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -287,7 +302,7 @@ function initializeRFIDReader() {
               await attendance.save();
 
               // Send SMS to parent
-              const smsContent = `تم تسجيل حضور الطالب ${student.name} في حصة ${currentClass.name} في ${now.toLocaleString()}`;
+              // const smsContent = `تم تسجيل حضور الطالب ${student.name} في حصة ${currentClass.name} في ${now.toLocaleString()}`;
 
               try {
                 await smsGateway.send(student.parentPhone, smsContent);
@@ -965,20 +980,20 @@ app.put('/api/payments/:id/pay', authenticate(['admin', 'secretary', 'accountant
     await teacherTransaction.save();
 
     // Send payment confirmation to parent
-    const smsContent = `تم تسديد دفعة شهر ${payment.month} بمبلغ ${payment.amount} د.ك لحصة ${payment.class.name}. رقم الفاتورة: ${payment.invoiceNumber}`;
+    // const smsContent = `تم تسديد دفعة شهر ${payment.month} بمبلغ ${payment.amount} د.ك لحصة ${payment.class.name}. رقم الفاتورة: ${payment.invoiceNumber}`;
 
-    try {
-      await smsGateway.send(payment.student.parentPhone, smsContent);
-      await Message.create({
-        sender: req.user.id,
-        recipients: [{ student: payment.student._id, parentPhone: payment.student.parentPhone }],
-        class: payment.class._id,
-        content: smsContent,
-        messageType: 'payment'
-      });
-    } catch (smsErr) {
-      console.error('فشل إرسال الرسالة:', smsErr);
-    }
+    // try {
+    //   // await smsGateway.send(payment.student.parentPhone, smsContent);
+    //   await Message.create({
+    //     sender: req.user.id,
+    //     recipients: [{ student: payment.student._id, parentPhone: payment.student.parentPhone }],
+    //     class: payment.class._id,
+    //     content: smsContent,
+    //     messageType: 'payment'
+    //   });
+    // } catch (smsErr) {
+    //   console.error('فشل إرسال الرسالة:', smsErr);
+    // }
 
     res.json({
       message: `تم تسديد الدفعة بنجاح`,
@@ -1490,7 +1505,7 @@ app.post('/api/student/register', async (req, res) => {
 });
 
 // Get Registration Requests (Admin only)
-app.get('/api/registration-requests', authenticate(['admin']), async (req, res) => {
+app.get('/api/registration-requests', async (req, res) => {
   try {
     const { status } = req.query;
     const query = { status: status || 'pending' };
@@ -1624,199 +1639,50 @@ io.on('connection', (socket) => {
   });
 });
 
+// create student account for ta3limi by user id 
+// req student id 
 
-
-
-
-
-
-
-// Add these routes to your existing Express app
-
-// Get all student accounts with filtering
-app.get('/api/student-accounts', authenticate(['admin']), async (req, res) => {
+app.post('/api/student/create-account/:id', async (req, res) => {
   try {
-    const { status, search, page = 1, limit = 10 } = req.query;
-    const query = {};
-    
-    if (status) query.status = status;
-    if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { studentId: { $regex: search, $options: 'i' } },
-        { 'registrationData.email': { $regex: search, $options: 'i' } }
-      ];
+    const student = await Student.findById(req.params.id);
+    if (!student) return res.status(404).json({ error: 'الطالب غير موجود' });
+
+    const { username, password, fullName, studentId } = req.body;
+    const role = 'student';
+    const active = true;
+
+    const existingUser = await User.findOne({ username });
+    if (existingUser) {
+      return res.status(400).json({ error: 'اسم المستخدم موجود مسبقا' });
     }
-    
-    const options = {
-      page: parseInt(page),
-      limit: parseInt(limit),
-      sort: { createdAt: -1 }
-    };
-    
-    const accounts = await Student.paginate(query, options);
-    res.json(accounts);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
-// Create student account
-app.post('/api/student-accounts', authenticate(['admin']), async (req, res) => {
-  try {
-    const { name, email, password, academicYear, parentInfo } = req.body;
-    
-    // Generate student ID
-    const studentId = 'STU-' + Date.now().toString().slice(-6);
-    
-    const student = new Student({
-      name,
-      studentId,
-      academicYear,
-      parentName: parentInfo?.name,
-      parentPhone: parentInfo?.phone,
-      parentEmail: email,
-      registrationData: {
-        email,
-        password: await bcrypt.hash(password, 10)
-      },
-      status: 'active'
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = new User({ username, password: hashedPassword, role, fullName, studentId, active });
+    await user.save();
+
+    res.status(201).json({
+      _id: user._id,
+      username: user.username,
+      role: user.role,
+      fullName: user.fullName,
+      studentId: user.studentId,
+      active: user.active
     });
-    
-    await student.save();
-    
-    res.status(201).json(student);
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Update student account
-app.put('/api/student-accounts/:id', authenticate(['admin']), async (req, res) => {
+app.get('/api/student-accounts', async (req, res) => {
   try {
-    const { name, email, academicYear, parentInfo, status } = req.body;
-    
-    const updates = {
-      name,
-      academicYear,
-      parentName: parentInfo?.name,
-      parentPhone: parentInfo?.phone,
-      parentEmail: email,
-      status
-    };
-    
-    if (req.body.password) {
-      updates.registrationData.password = await bcrypt.hash(req.body.password, 10);
-    }
-    
-    const student = await Student.findByIdAndUpdate(
-      req.params.id,
-      { $set: updates },
-      { new: true }
-    );
-    
-    res.json(student);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-// Bulk actions
-app.post('/api/student-accounts/bulk-actions', authenticate(['admin']), async (req, res) => {
-  try {
-    const { action, studentIds } = req.body;
-    
-    let update;
-    switch (action) {
-      case 'activate':
-        update = { status: 'active' };
-        break;
-      case 'deactivate':
-        update = { status: 'inactive' };
-        break;
-      case 'delete':
-        await Student.deleteMany({ _id: { $in: studentIds } });
-        return res.json({ message: 'تم حذف الحسابات المحددة بنجاح' });
-      default:
-        return res.status(400).json({ error: 'إجراء غير صالح' });
-    }
-    
-    await Student.updateMany(
-      { _id: { $in: studentIds } },
-      update
-    );
-    
-    res.json({ message: `تم ${action === 'activate' ? 'تفعيل' : 'تعطيل'} الحسابات المحددة بنجاح` });
+    const studentAccounts = await User.find({ role: 'student' });
+    res.json(studentAccounts);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 
-
-
-// Add this route to your Express app
-app.get('/api/student-accounts/export', authenticate(['admin']), async (req, res) => {
-  try {
-      const { status, search } = req.query;
-      const query = {};
-      
-      if (status) query.status = status;
-      if (search) {
-          query.$or = [
-              { name: { $regex: search, $options: 'i' } },
-              { studentId: { $regex: search, $options: 'i' } },
-              { 'registrationData.email': { $regex: search, $options: 'i' } }
-          ];
-      }
-      
-      const students = await Student.find(query)
-          .sort({ createdAt: -1 })
-          .lean();
-      
-      // Create Excel workbook
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet('حسابات الطلاب');
-      
-      // Add headers
-      worksheet.columns = [
-          { header: 'رقم الطالب', key: 'studentId', width: 15 },
-          { header: 'اسم الطالب', key: 'name', width: 25 },
-          { header: 'البريد الإلكتروني', key: 'email', width: 25 },
-          { header: 'السنة الدراسية', key: 'academicYear', width: 15 },
-          { header: 'اسم ولي الأمر', key: 'parentName', width: 25 },
-          { header: 'هاتف ولي الأمر', key: 'parentPhone', width: 15 },
-          { header: 'حالة الحساب', key: 'status', width: 15 },
-          { header: 'تاريخ الإنشاء', key: 'createdAt', width: 20 }
-      ];
-      
-      // Add data rows
-      students.forEach(student => {
-          worksheet.addRow({
-              studentId: student.studentId,
-              name: student.name,
-              email: student.parentEmail,
-              academicYear: getAcademicYearName(student.academicYear),
-              parentName: student.parentName,
-              parentPhone: student.parentPhone,
-              status: getAccountStatusText(student.status),
-              createdAt: new Date(student.createdAt).toLocaleDateString('ar-EG')
-          });
-      });
-      
-      // Set response headers
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.setHeader('Content-Disposition', 'attachment; filename=student_accounts.xlsx');
-      
-      // Send the workbook
-      await workbook.xlsx.write(res);
-      res.end();
-      
-  } catch (err) {
-      console.error('Export error:', err);
-      res.status(500).json({ error: 'حدث خطأ أثناء التصدير' });
-  }
-});
 
 
 
