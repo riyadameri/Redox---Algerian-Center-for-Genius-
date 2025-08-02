@@ -62,7 +62,7 @@ socket.on('unknown-card', (data) => {
 // Load students
 async function loadStudents() {
   try {
-    const response = await fetch('localhost:4200/api/students');
+    const response = await fetch('http://localhost:4200/api/students');
     const students = await response.json();
     
     const studentsTable = document.getElementById('students-table');
@@ -103,7 +103,7 @@ saveStudentBtn.addEventListener('click', async () => {
   };
   
   try {
-    const response = await fetch('localhost:4200/api/students', {
+    const response = await fetch('http://localhost:4200/api/students', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

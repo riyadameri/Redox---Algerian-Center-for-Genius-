@@ -168,7 +168,7 @@ const StudentRegistrationForm = () => {
       setSubmitError(null);
       
       try {
-        const response = await axios.post(' /api/student/register', values);
+        const response = await axios.post('localhost:4200/api/student/register', values);
         const studentData = {
           ...response.data,
           parentPhone: values.parentPhone

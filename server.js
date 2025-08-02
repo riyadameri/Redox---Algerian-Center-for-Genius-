@@ -15,7 +15,16 @@ const smsGateway = require('./sms-gateway');
 
 const app = express();
 const server = require('http').createServer(app);
-const io = socketio(server);
+
+const io = socketio(server, {
+  cors: {
+    origin: "http://localhost:3000", // or "*" for development
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    credentials: true
+  },
+  transports: ['websocket', 'polling'] // Add this line
+
+});
 
 // Middleware
 app.use(cors({
@@ -234,7 +243,7 @@ function initializeRFIDReader() {
       if (err) {
         console.error(`Failed to open RFID port ${portName}:`, err.message);
         console.log('Retrying in 5 seconds...');
-        setTimeout(initializeRFIDReader, 5000);
+        setTimeout(initializeRFIDReader, 500000);
         return;
       }
       console.log(`RFID reader connected successfully on ${portName}`);
@@ -339,7 +348,7 @@ function initializeRFIDReader() {
       console.error('RFID reader error:', err.message);
       setTimeout(initializeRFIDReader, 5000);
     });
-
+    s
     serialPort.on('close', () => {
       console.log('RFID port closed, attempting to reconnect...');
       setTimeout(initializeRFIDReader, 5000);
@@ -1443,14 +1452,6 @@ app.get('/api/live-classes/:classId/report', authenticate(['admin', 'secretary',
 
 
 
-
-
-
-
-
-
-
-
 // Student Registration Endpoint
 app.post('/api/student/register', async (req, res) => {
   try {
@@ -1518,14 +1519,6 @@ app.get('/api/registration-requests', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-
-
-
-
-
-
-
 
 
 // Approve Student
@@ -1683,19 +1676,190 @@ app.get('/api/student-accounts', async (req, res) => {
 });
 
 
+// Student Login Route
+app.post('/api/student/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const user = await User.findOne({ username, role: 'student' });
 
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ error: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
+    }
+
+    const student = await Student.findOne({ studentId: user.studentId });
+
+    if (!student) {
+      return res.status(404).json({ error: 'الطالب غير موجود' });
+    }
+
+    const token = jwt.sign(
+      { id: user._id, username: user.username, role: user.role, studentId: user.studentId },
+      process.env.JWT_SECRET,
+      { expiresIn: '8h' }
+    );
+
+    res.json({ 
+      token, 
+      user: { 
+        username: user.username, 
+        role: user.role, 
+        fullName: user.fullName,
+        studentId: user.studentId
+      } 
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get Student Data
+app.get('/api/student/data', authenticate(['student']), async (req, res) => {
+  try {
+    const student = await Student.findOne({ studentId: req.user.studentId })
+      .populate({
+        path: 'classes',
+        populate: [
+          { path: 'teacher', model: 'Teacher' },
+          { path: 'schedule.classroom', model: 'Classroom' }
+        ]
+      });
+
+    if (!student) {
+      return res.status(404).json({ error: 'الطالب غير موجود' });
+    }
+
+    // Get upcoming classes (next 7 days)
+    const today = new Date();
+    const nextWeek = new Date();
+    nextWeek.setDate(today.getDate() + 7);
+
+    const upcomingClasses = [];
+    const days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    
+    student.classes.forEach(cls => {
+      cls.schedule.forEach(session => {
+        const dayIndex = days.indexOf(session.day);
+        if (dayIndex >= 0) {
+          const classDate = new Date(today);
+          const daysToAdd = (dayIndex - today.getDay() + 7) % 7;
+          classDate.setDate(today.getDate() + daysToAdd);
+          
+          if (classDate >= today && classDate <= nextWeek) {
+            const [hours, minutes] = session.time.split(':').map(Number);
+            classDate.setHours(hours, minutes, 0, 0);
+            
+            upcomingClasses.push({
+              classId: cls._id,
+              className: cls.name,
+              subject: cls.subject,
+              teacher: cls.teacher.name,
+              day: session.day,
+              time: session.time,
+              classroom: session.classroom?.name || 'غير محدد',
+              date: classDate,
+              formattedDate: classDate.toLocaleDateString('ar-EG')
+            });
+          }
+        }
+      });
+    });
+
+    // Sort by date
+    upcomingClasses.sort((a, b) => a.date - b.date);
+
+    // Get payment status
+    const payments = await Payment.find({ 
+      student: student._id 
+    }).populate('class').sort({ month: -1 });
+
+    res.json({
+      student: {
+        name: student.name,
+        studentId: student.studentId,
+        academicYear: student.academicYear,
+        parentName: student.parentName,
+        parentPhone: student.parentPhone,
+        parentEmail: student.parentEmail
+      },
+      upcomingClasses,
+      payments
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Student Change Password
+app.post('/api/student/change-password', authenticate(['student']), async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const user = await User.findById(req.user.id);
+
+    if (!(await bcrypt.compare(currentPassword, user.password))) {
+      return res.status(400).json({ error: 'كلمة المرور الحالية غير صحيحة' });
+    }
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.json({ message: 'تم تغيير كلمة المرور بنجاح' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+app.get('/student/status/:studentId', async (req, res) => {
+  try {
+    const student = await Student.findOne({ studentId: req.params.studentId });
+    if (!student) {
+      return res.status(404).json({ error: 'الطالب غير موجود' });
+    }
+    res.json({
+      status: student.status,
+      active: student.active,
+      name: student.name,
+      registrationDate: student.registrationDate
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 
 initializeRFIDReader();
 
-
-// Serve frontend
+// Main application entry point
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+
+// Admin dashboard
+app.get('/admin', authenticate(['admin']), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+// Teacher dashboard
+app.get('/teacher', authenticate(['teacher']), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'teacher.html'));
+});
+
+// Student routes
 app.get('/student', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'student.html'));
+  res.redirect('/student/login');
+});
+
+app.get('/student/register', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'student-register.html'));
+});
+
+app.get('/student/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'student-login.html'));
+});
+
+app.get('/student/dashboard', authenticate(['student']), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'student-dashboard.html'));
 });
 
 const PORT = process.env.PORT || 4200;
