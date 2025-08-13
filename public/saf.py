@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+pconst mongoose = require('mongoose');
 const faker = require('faker/locale/ar');
 const moment = require('moment');
 require('dotenv').config();
