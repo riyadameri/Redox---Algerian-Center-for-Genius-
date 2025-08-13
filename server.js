@@ -43,18 +43,12 @@ app.use(express.static(path.join(__dirname, 'public')));
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  role: { 
-    type: String, 
-    enum: ['admin', 'secretary', 'accountant', 'teacher', 'employee'], 
-    required: true 
-  },
+  role: { type: String, enum: ['admin', 'secretary', 'accountant', 'teacher'], required: true },
   fullName: String,
   phone: String,
   email: String,
   createdAt: { type: Date, default: Date.now },
-  active: { type: Boolean, default: true },
-  employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee' }
-
+  active: { type: Boolean, default: true }
 });
 
 const StudentsAccountsSchema = new mongoose.Schema({
@@ -87,7 +81,8 @@ const studentSchema = new mongoose.Schema({
   active: { type: Boolean, default: true }, // Changed default to false
   academicYear: { 
     type: String, 
-    enum: ['1AS', '2AS', '3AS', '1MS', '2MS', '3MS', '4MS', '5MS' ,'1SM','2SM','3SM','4SM','5SM','NS', null , 'اولى ابتدائي', 'ثانية ابتدائي', 'ثالثة ابتدائي', 'رابعة ابتدائي', 'خامسة ابتدائي', 'غير محدد'],
+    enum: ['1AS', '2AS', '3AS', '1MS', '2MS', '3MS', '4MS', '5MS' ,'1AP','2AP','3AP','4AP','5AP','NS', null , 'اولى ابتدائي', 'ثانية ابتدائي', 'ثالثة ابتدائي', 'رابعة ابتدائي', 'خامسة ابتدائي', 'غير محدد'],
+    required: true
   },
   new : { type: Boolean, default: true }, 
   classes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Class' }],
@@ -133,7 +128,7 @@ const classSchema = new mongoose.Schema({
     time: String,
     classroom: { type: mongoose.Schema.Types.ObjectId, ref: 'Classroom' }
   }],
-  enum: ['1AS', '2AS', '3AS', '1MS', '2MS', '3MS', '4MS', '5MS' ,'1SM','2SM','3SM','4SM','5SM','NS'],
+  academicYear: { type: String, enum: ['1AS', '2AS', '3AS', '1MS', '2MS', '3MS', '4MS', '5MS','1AP','2AP','3AP','4AP','5AP','NS'] },
   teacher: { type: mongoose.Schema.Types.ObjectId, ref: 'Teacher' },
   students: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Student' }],
   price: { type: Number, required: true }
@@ -207,49 +202,6 @@ const liveClassSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
 }, { timestamps: true });
 
-// بعد نماذج البيانات الحالية، أضف ما يلي:
-
-// نموذج الموظفين (السكرتارية والإدارة)
-const employeeSchema = new mongoose.Schema({
-  name: { type: String, required: true },
-  position: { 
-    type: String, 
-    enum: ['سكرتير', 'محاسب', 'مدير مشتريات', 'موظف استقبال'],
-    required: true 
-  },
-  hireDate: { type: Date, default: Date.now },
-  salary: { type: Number, required: true },
-  bankAccount: {
-    bankName: String,
-    accountNumber: String,
-    IBAN: String
-  },
-  active: { type: Boolean, default: true },
-  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' } // ربط بالموظف المسجل في النظام
-});
-
-// نموذج الرواتب
-const salarySchema = new mongoose.Schema({
-  employee: { type: mongoose.Schema.Types.ObjectId, ref: 'Employee', required: true },
-  month: { type: String, required: true }, // بصيغة YYYY-MM
-  basicSalary: { type: Number, required: true },
-  bonuses: { type: Number, default: 0 },
-  deductions: { type: Number, default: 0 },
-  netSalary: { type: Number, required: true },
-  paymentDate: { type: Date },
-  status: { type: String, enum: ['pending', 'paid', 'late'], default: 'pending' },
-  paymentMethod: { type: String, enum: ['transfer', 'cash'], default: 'transfer' },
-  transactionRef: String, // رقم المرجع البنكي
-  recordedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
-});
-
-// تسجيل النماذج
-const Employee = mongoose.model('Employee', employeeSchema);
-const Salary = mongoose.model('Salary', salarySchema);
-
-
-
-
 const LiveClass = mongoose.model('LiveClass', liveClassSchema);
 
 const User = mongoose.model('User', userSchema);
@@ -265,186 +217,6 @@ const FinancialTransaction = mongoose.model('FinancialTransaction', financialTra
 
 // RFID Reader Implementation
 let serialPort = null;
-
-
-
-
-// ==== إدارة الموظفين ====
-app.post('/api/employees',  async (req, res) => {
-  try {
-    const employee = new Employee(req.body);
-    await employee.save();
-    res.status(201).json(employee);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-app.get('/api/employees', async (req, res) => {
-  try {
-    const employees = await Employee.find().populate('user');
-    res.json(employees);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ==== إدارة الرواتب ====
-app.post('/api/salaries',async (req, res) => {
-  try {
-    const { employeeId, month, bonuses, deductions } = req.body;
-    
-    const employee = await Employee.findById(employeeId);
-    if (!employee) {
-      return res.status(404).json({ error: 'الموظف غير موجود' });
-    }
-
-    const netSalary = employee.salary + (bonuses || 0) - (deductions || 0);
-
-    const salary = new Salary({
-      employee: employeeId,
-      month,
-      basicSalary: employee.salary,
-      bonuses,
-      deductions,
-      netSalary,
-      recordedBy: req.user.id
-    });
-
-    await salary.save();
-
-    // تسجيل المعاملة المالية
-    const transaction = new FinancialTransaction({
-      type: 'expense',
-      amount: netSalary,
-      description: `راتب الموظف ${employee.name} لشهر ${month}`,
-      category: 'salary',
-      recordedBy: req.user.id,
-      reference: salary._id
-    });
-    await transaction.save();
-
-    res.status(201).json(salary);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-app.put('/api/salaries/:id/pay',async (req, res) => {
-  try {
-    const { paymentDate, paymentMethod, transactionRef } = req.body;
-    
-    const salary = await Salary.findById(req.params.id).populate('employee');
-    if (!salary) {
-      return res.status(404).json({ error: 'سجل الراتب غير موجود' });
-    }
-
-    salary.paymentDate = paymentDate || new Date();
-    salary.paymentMethod = paymentMethod;
-    salary.transactionRef = transactionRef;
-    salary.status = 'paid';
-    salary.recordedBy = req.user.id;
-
-    await salary.save();
-
-    // إرسال إشعار للموظف
-    if (salary.employee.user) {
-      const user = await User.findById(salary.employee.user);
-      if (user && user.email) {
-        await transporter.sendMail({
-          to: user.email,
-          subject: 'تم دفع راتبك',
-          html: `
-            <p>عزيزي ${salary.employee.name}</p>
-            <p>تم دفع راتبك لشهر ${salary.month} بمبلغ ${salary.netSalary} دينار</p>
-            <p>طريقة الدفع: ${salary.paymentMethod === 'transfer' ? 'تحويل بنكي' : 'نقدي'}</p>
-            ${salary.transactionRef ? `<p>رقم المرجع: ${salary.transactionRef}</p>` : ''}
-          `
-        });
-      }
-    }
-
-    res.json({ 
-      message: 'تم تسجيل دفع الراتب بنجاح',
-      salary
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get('/api/salaries',  async (req, res) => {
-  try {
-    const { month, status, employee } = req.query;
-    const query = {};
-    
-    if (month) query.month = month;
-    if (status) query.status = status;
-    if (employee) query.employee = employee;
-
-    const salaries = await Salary.find(query)
-      .populate('employee')
-      .populate('recordedBy')
-      .sort({ month: -1 });
-
-    res.json(salaries);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-
-
-
-
-
-
-
-
-
-// دالة لإنشاء رواتب شهرية تلقائية
-async function generateMonthlySalaries() {
-  try {
-    const currentDate = new Date();
-    const currentMonth = `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}`;
-    
-    // التحقق من عدم إنشاء رواتب لهذا الشهر مسبقاً
-    const existingSalaries = await Salary.findOne({ month: currentMonth });
-    if (existingSalaries) {
-      console.log('رواتب هذا الشهر تم إنشاؤها مسبقاً');
-      return;
-    }
-
-    const employees = await Employee.find({ active: true });
-    
-    for (const employee of employees) {
-      const salary = new Salary({
-        employee: employee._id,
-        month: currentMonth,
-        basicSalary: employee.salary,
-        netSalary: employee.salary,
-        recordedBy: null // سيتم تعيينه عند الدفع
-      });
-      
-      await salary.save();
-      
-      console.log(`تم إنشاء راتب لـ ${employee.name} لشهر ${currentMonth}`);
-    }
-    
-    console.log('تم إنشاء جميع الرواتب الشهرية بنجاح');
-  } catch (err) {
-    console.error('خطأ في إنشاء الرواتب التلقائية:', err);
-  }
-}
-
-// جدولة إنشاء الرواتب في أول كل شهر
-const schedule = require('node-schedule');
-schedule.scheduleJob('0 0 1 * *', generateMonthlySalaries); // في أول يوم من كل شهر
-
-
-
-
-
 
 function initializeRFIDReader() {
   const portName = process.env.RFID_PORT;
@@ -462,130 +234,130 @@ function initializeRFIDReader() {
     serialPort.close();
   }
 
-  // try {
-  //   serialPort = new SerialPort({
-  //     path: portName,
-  //     baudRate: baudRate,
-  //     lock: false
-  //   }, (err) => {
-  //     if (err) {
-  //       console.error(`Failed to open RFID port ${portName}:`, err.message);
-  //       console.log('Retrying in 5 seconds...');
-  //       setTimeout(initializeRFIDReader, 500000);
-  //       return;
-  //     }
-  //     console.log(`RFID reader connected successfully on ${portName}`);
-  //   });
+  try {
+    serialPort = new SerialPort({
+      path: portName,
+      baudRate: baudRate,
+      lock: false
+    }, (err) => {
+      if (err) {
+        console.error(`Failed to open RFID port ${portName}:`, err.message);
+        console.log('Retrying in 5 seconds...');
+        setTimeout(initializeRFIDReader, 500000);
+        return;
+      }
+      console.log(`RFID reader connected successfully on ${portName}`);
+    });
 
-  //   const parser = serialPort.pipe(new ReadlineParser({ delimiter: '\r\n' }));
+    const parser = serialPort.pipe(new ReadlineParser({ delimiter: '\r\n' }));
 
-  //   parser.on('data', async (data) => {
-  //     console.log('Raw RFID data:', data); // Debug output
+    parser.on('data', async (data) => {
+      console.log('Raw RFID data:', data); // Debug output
       
-  //     if (data.length > 0) {
-  //       const uid = data.trim();
-  //       console.log('Potential UID:', uid);
-  //       io.emit('raw-data', { data, uid }); // Send to frontend for debugging
-  //     }
+      if (data.length > 0) {
+        const uid = data.trim();
+        console.log('Potential UID:', uid);
+        io.emit('raw-data', { data, uid }); // Send to frontend for debugging
+      }
 
-  //     if (data.startsWith('UID:')) {
-  //       const uid = data.trim().substring(4).trim();
-  //       console.log('Card detected:', uid);
+      if (data.startsWith('UID:')) {
+        const uid = data.trim().substring(4).trim();
+        console.log('Card detected:', uid);
 
-  //       try {
-  //         const card = await Card.findOne({ uid }).populate('student');
-  //         if (card) {
-  //           const student = await Student.findById(card.student._id)
-  //             .populate({
-  //               path: 'classes',
-  //               populate: [
-  //                 { path: 'teacher', model: 'Teacher' },
-  //                 { path: 'students', model: 'Student' }
-  //               ]
-  //             });
+        try {
+          const card = await Card.findOne({ uid }).populate('student');
+          if (card) {
+            const student = await Student.findById(card.student._id)
+              .populate({
+                path: 'classes',
+                populate: [
+                  { path: 'teacher', model: 'Teacher' },
+                  { path: 'students', model: 'Student' }
+                ]
+              });
 
-  //           const payments = await Payment.find({ student: card.student._id, status: { $in: ['pending', 'late'] } })
-  //             .populate('class');
+            const payments = await Payment.find({ student: card.student._id, status: { $in: ['pending', 'late'] } })
+              .populate('class');
 
-  //           // Check if any class is scheduled now
-  //           const now = new Date();
-  //           const day = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'][now.getDay()];
-  //           const currentHour = now.getHours();
-  //           const currentMinute = now.getMinutes();
+            // Check if any class is scheduled now
+            const now = new Date();
+            const day = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'][now.getDay()];
+            const currentHour = now.getHours();
+            const currentMinute = now.getMinutes();
 
-  //           let currentClass = null;
+            let currentClass = null;
 
-  //           for (const cls of student.classes || []) {
-  //             for (const schedule of cls.schedule || []) {
-  //               if (schedule.day === day) {
-  //                 const [hour, minute] = schedule.time.split(':').map(Number);
-  //                 if (Math.abs((hour - currentHour) * 60 + (minute - currentMinute)) <= 30) {
-  //                   currentClass = cls;
-  //                   break;
-  //                 }
-  //               }
-  //             }
-  //             if (currentClass) break;
-  //           }
+            for (const cls of student.classes || []) {
+              for (const schedule of cls.schedule || []) {
+                if (schedule.day === day) {
+                  const [hour, minute] = schedule.time.split(':').map(Number);
+                  if (Math.abs((hour - currentHour) * 60 + (minute - currentMinute)) <= 30) {
+                    currentClass = cls;
+                    break;
+                  }
+                }
+              }
+              if (currentClass) break;
+            }
 
-  //           if (currentClass) {
-  //             // Record attendance
-  //             const attendance = new Attendance({
-  //               student: student._id,
-  //               class: currentClass._id,
-  //               date: now,
-  //               status: 'present'
-  //             });
-  //             await attendance.save();
+            if (currentClass) {
+              // Record attendance
+              const attendance = new Attendance({
+                student: student._id,
+                class: currentClass._id,
+                date: now,
+                status: 'present'
+              });
+              await attendance.save();
 
-  //             // Send SMS to parent
-  //             // const smsContent = `تم تسجيل حضور الطالب ${student.name} في حصة ${currentClass.name} في ${now.toLocaleString()}`;
+              // Send SMS to parent
+              // const smsContent = `تم تسجيل حضور الطالب ${student.name} في حصة ${currentClass.name} في ${now.toLocaleString()}`;
 
-  //             try {
-  //               await smsGateway.send(student.parentPhone, smsContent);
-  //               await Message.create({
-  //                 sender: null,
-  //                 recipients: [{ student: student._id, parentPhone: student.parentPhone }],
-  //                 class: currentClass._id,
-  //                 content: smsContent,
-  //                 messageType: 'individual'
-  //               });
-  //             } catch (smsErr) {
-  //               console.error('Failed to send SMS:', smsErr);
-  //             }
-  //           }
+              try {
+                await smsGateway.send(student.parentPhone, smsContent);
+                await Message.create({
+                  sender: null,
+                  recipients: [{ student: student._id, parentPhone: student.parentPhone }],
+                  class: currentClass._id,
+                  content: smsContent,
+                  messageType: 'individual'
+                });
+              } catch (smsErr) {
+                console.error('Failed to send SMS:', smsErr);
+              }
+            }
 
-  //           io.emit('student-detected', {
-  //             student,
-  //             card,
-  //             classes: student.classes || [],
-  //             payments: payments || [],
-  //             currentClass
-  //           });
-  //         } else {
-  //           io.emit('unknown-card', { uid });
-  //         }
-  //       } catch (err) {
-  //         console.error('Error processing card:', err);
-  //         io.emit('card-error', { error: 'Error processing card' });
-  //       }
-  //     }
-  //   });
+            io.emit('student-detected', {
+              student,
+              card,
+              classes: student.classes || [],
+              payments: payments || [],
+              currentClass
+            });
+          } else {
+            io.emit('unknown-card', { uid });
+          }
+        } catch (err) {
+          console.error('Error processing card:', err);
+          io.emit('card-error', { error: 'Error processing card' });
+        }
+      }
+    });
 
-  //   serialPort.on('error', err => {
-  //     console.error('RFID reader error:', err.message);
-  //     setTimeout(initializeRFIDReader, 5000);
-  //   });
-  //   s
-  //   serialPort.on('close', () => {
-  //     console.log('RFID port closed, attempting to reconnect...');
-  //     setTimeout(initializeRFIDReader, 5000);
-  //   });
+    serialPort.on('error', err => {
+      console.error('RFID reader error:', err.message);
+      setTimeout(initializeRFIDReader, 5000);
+    });
+    s
+    serialPort.on('close', () => {
+      console.log('RFID port closed, attempting to reconnect...');
+      setTimeout(initializeRFIDReader, 5000);
+    });
 
-  // } catch (err) {
-  //   console.error('RFID initialization error:', err.message);
-  //   setTimeout(initializeRFIDReader, 5000);
-  // }
+  } catch (err) {
+    console.error('RFID initialization error:', err.message);
+    setTimeout(initializeRFIDReader, 5000);
+  }
 }
 
 // Connect to MongoDB
@@ -1170,51 +942,7 @@ app.get('/api/payments', authenticate(['admin', 'secretary', 'accountant']), asy
   }
 });
 
-async function printReceipt(receiptData) {
-  return new Promise((resolve, reject) => {
-    const net = require('net');
-    const client = new net.Socket();
-    
-    client.connect(5000, 'localhost', () => {
-      client.write(JSON.stringify(receiptData));
-    });
-
-    client.on('data', (data) => {
-      client.destroy();
-      resolve(data.toString());
-    });
-
-    client.on('error', (err) => {
-      client.destroy();
-      console.error('Printer service error:', err);
-      reject(err);
-    });
-  });
-}
-async function handlePayment(paymentId) {
-  try {
-    const response = await fetch(`/api/payments/${paymentId}/pay`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      },
-      body: JSON.stringify({
-        paymentDate: new Date().toISOString(),
-        paymentMethod: 'cash'
-      })
-    });
-
-    const result = await response.json();
-    if (response.ok) {
-      alert(`Payment successful! Invoice #: ${result.invoiceNumber}`);
-    } else {
-      alert(`Payment failed: ${result.error}`);
-    }
-  } catch (error) {
-    alert(`Error: ${error.message}`);
-  }
-}
+// Register Payment
 // Register Payment - FIXED VERSION
 app.put('/api/payments/:id/pay', authenticate(['admin', 'secretary', 'accountant']), async (req, res) => {
   console.log(req.params.id);
@@ -1236,20 +964,6 @@ app.put('/api/payments/:id/pay', authenticate(['admin', 'secretary', 'accountant
     payment.invoiceNumber = `INV-${Date.now()}`;
 
     await payment.save();
-    try {
-      await printReceipt({
-        title: "Payment Receipt",
-        student_name: payment.student.name,
-        student_id: payment.student.studentId,
-        class_name: payment.class.name,
-        amount: payment.amount,
-        month: payment.month,
-        payment_method: payment.paymentMethod,
-        invoice_number: payment.invoiceNumber
-      });
-    } catch (printErr) {
-      console.error('Failed to print receipt:', printErr);
-    }
 
     // Record financial transaction (actual income)
     const transaction = new FinancialTransaction({
@@ -1443,7 +1157,7 @@ app.post('/api/messages', authenticate(['admin', 'secretary']), async (req, res)
 });
 
 // Financial Transactions
-app.get('/api/transactions', async (req, res) => {
+app.get('/api/transactions', authenticate(['admin', 'accountant']), async (req, res) => {
   try {
     const { type, category, startDate, endDate } = req.query;
     const query = {};
@@ -2115,26 +1829,6 @@ app.get('/student/status/:studentId', async (req, res) => {
 
 initializeRFIDReader();
 
-
-
-
-
-
-
-
-
-
-
-// في حال كنت تستخدم واجهة HTML
-app.get('/accounting/salaries',  (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'salaries.html'));
-});
-
-app.get('/accounting/employees',  (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'employees.html'));
-});
-
-
 // Main application entry point
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
@@ -2192,6 +1886,5 @@ process.on('unhandledRejectionMonitor', (reason, p) => {
   console.error('Unhandled Rejection Monitor at:', p, 'reason:', reason);
   // application specific logging, throwing an error, or other logic here
 });
-
 
 

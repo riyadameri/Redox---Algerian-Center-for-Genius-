@@ -346,7 +346,6 @@
                     Swal.fire('خطأ', 'حدث خطأ أثناء تحميل بيانات الأساتذة', 'error');
                 }
             }
-
             async function loadClasses() {
                 try {
                     const response = await fetch('/api/classes', {
@@ -359,7 +358,8 @@
                     }
                     
                     const classes = await response.json();
-                    
+                    console.log(classes); // تحقق من وجود academicYear في البيانات
+
                     const tableBody = document.getElementById('classesTable');
                     tableBody.innerHTML = '';
                     
@@ -369,7 +369,7 @@
                             <td>${index + 1}</td>
                             <td>${cls.name}</td>
                             <td>${cls.subject || '-'}</td>
-                            <td>${getAcademicYearName(cls.academicYear) || '-'}</td>
+                            <td>${getAcademicYearName(cls.academicYear) || 'غير محدد'}</td>
                             <td>${cls.teacher?.name || 'غير معين'}</td>
                             <td>${cls.students?.length || 0}</td>
                             <td>
@@ -480,7 +480,7 @@
                     classes.forEach(cls => {
                         const option = document.createElement('option');
                         option.value = cls._id;
-                        option.textContent = `${cls.name} (${cls.price} د.ك)`;
+                        option.textContent = `${cls.name} (${cls.subject}) - ${getAcademicYearName(cls.academicYear)} - ${cls.price} د.ك`;
                         select.appendChild(option);
                     });
                 } catch (err) {
@@ -581,13 +581,23 @@
                     
                     const select = document.getElementById('cardStudentSelect');
                     select.innerHTML = '<option value="" selected disabled>اختر طالب</option>';
-                    
-                    students.forEach(student => {
-                        const option = document.createElement('option');
-                        option.value = student._id;
-                        option.textContent = `${student.name} (${student.studentId})`;
-                        select.appendChild(option);
-                    });
+// Inside loadStudents() or similar:
+students.forEach((student, index) => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+        <td>${index + 1}</td>
+        <td>${student.name}</td>
+        <td>${student.studentId}</td>
+        <td>${student.parentName || '-'}</td>
+        <td>${getAcademicYearName(student.academicYear) || '-'}</td> <!-- Fix Here -->
+        <td>${student.classes?.length || 0}</td>
+        <td>
+            <!-- Actions -->
+        </td>
+    `;
+    tableBody.appendChild(row);
+});
+console.log("Student Academic Year:", student.academicYear); // Should log "3AP"
                 } catch (err) {
                     console.error('Error loading students for cards:', err);
                 }
@@ -690,25 +700,35 @@
 
             // Helper functions
             function getAcademicYearName(code) {
+                if (!code || code === 'NS' || code === 'غير محدد') return 'غير محدد';
+                
                 const years = {
+                    // Secondary (AS)
                     '1AS': 'الأولى ثانوي',
                     '2AS': 'الثانية ثانوي',
                     '3AS': 'الثالثة ثانوي',
+                    // Middle (MS)
                     '1MS': 'الأولى متوسط',
                     '2MS': 'الثانية متوسط',
                     '3MS': 'الثالثة متوسط',
                     '4MS': 'الرابعة متوسط',
                     '5MS': 'الخامسة متوسط',
-                    '1SM': 'الأولى إبتدائي',
-                    '2SM': 'الثانية إبتدائي',
-                    '3SM': 'الثالثة إبتدائي',
-                    '4SM': 'الرابعة إبتدائي',
-                    '5SM': 'الخامسة إبتدائي',
-                    'NS': 'سنة دراسية غير محددة'
+                    // Primary (AP)
+                    '1AP': 'الأولى ابتدائي',
+                    '2AP': 'الثانية ابتدائي',
+                    '3AP': 'الثالثة ابتدائي',
+                    '4AP': 'الرابعة ابتدائي',
+                    '5AP': 'الخامسة ابتدائي',
+                    // Other possible values
+                    'اولى ابتدائي': 'الأولى ابتدائي',
+                    'ثانية ابتدائي': 'الثانية ابتدائي',
+                    'ثالثة ابتدائي': 'الثالثة ابتدائي',
+                    'رابعة ابتدائي': 'الرابعة ابتدائي',
+                    'خامسة ابتدائي': 'الخامسة ابتدائي'
                 };
-                return years[code] || code;
+                
+                return years[code] || code; // Fallback to original code if not found
             }
-
             // Form submission handlers
             document.getElementById('saveStudentBtn').addEventListener('click', async () => {
                 const studentData = {
@@ -857,6 +877,8 @@
                 };
                 
                 try {
+                    console.log('Academic Year:', document.getElementById('classAcademicYear').value);
+                    
                     const response = await fetch('/api/classes', {
                         method: 'POST',
                         headers: getAuthHeaders(),
@@ -1141,55 +1163,61 @@
             console.error('Payment modal error:', err);
             Swal.fire('Error', 'Failed to load payment data: ' + err.message, 'error');
         }
-    };        window.showEnrollModal = async function(studentId) {
-                currentStudentId = studentId;
-                
-                try {
-                    // Load available classes
-                    const response = await fetch('/api/classes', {
-                        headers: getAuthHeaders()
-                    });
+    };       
+    window.showEnrollModal = async function(studentId) {
+        currentStudentId = studentId;
+        
+        try {
+            // Load student data first to get academic year
+            const studentResponse = await fetch(`/api/students/${studentId}`, {
+                headers: getAuthHeaders()
+            });
+            
+            if (studentResponse.status === 401) {
+                logout();
+                return;
+            }
+            
+            const student = await studentResponse.json();
+            
+            // Load available classes that match student's academic year or have no academic year specified
+            const response = await fetch('/api/classes', {
+                headers: getAuthHeaders()
+            });
+            
+            const classes = await response.json();
+            
+            const select = document.getElementById('enrollClassSelect');
+            select.innerHTML = '<option value="" selected disabled>اختر حصة</option>';
+            
+            classes.forEach(cls => {
+                // Show class if:
+                // 1. It has no academic year specified (null/undefined)
+                // 2. It matches the student's academic year
+                // 3. Academic year is "غير محدد" or "NS"
+                if (!cls.academicYear || 
+                    cls.academicYear === student.academicYear || 
+                    cls.academicYear === 'NS' || 
+                    cls.academicYear === 'غير محدد') {
                     
-                    if (response.status === 401) {
-                        logout();
-                        return;
-                    }
-                    
-                    const classes = await response.json();
-                    
-                    const select = document.getElementById('enrollClassSelect');
-                    select.innerHTML = '<option value="" selected disabled>اختر حصة</option>';
-                    
-                    classes.forEach(cls => {
-                        const option = document.createElement('option');
-                        option.value = cls._id;
-                        option.textContent = `${cls.name} (${cls.subject})`;
-                        select.appendChild(option);
-                    });
-                    
-                    // Set selected student
-                    const studentResponse = await fetch(`/api/students/${studentId}`, {
-                        headers: getAuthHeaders()
-                    });
-                    
-                    if (studentResponse.status === 401) {
-                        logout();
-                        return;
-                    }
-                    
-                    const student = await studentResponse.json();
-                    
-                    document.getElementById('enrollStudentSelect').innerHTML = `
-                        <option value="${student._id}" selected>${student.name} (${student.studentId})</option>
-                    `;
-                    
-                    const enrollModal = new bootstrap.Modal(document.getElementById('enrollStudentModal'));
-                    enrollModal.show();
-                } catch (err) {
-                    console.error('Error:', err);
-                    Swal.fire('خطأ', 'حدث خطأ أثناء تحميل بيانات الحصص', 'error');
+                    const option = document.createElement('option');
+                    option.value = cls._id;
+                    option.textContent = `${cls.name} (${cls.subject}) - ${getAcademicYearName(cls.academicYear)}`;
+                    select.appendChild(option);
                 }
-            };
+            });
+            
+            document.getElementById('enrollStudentSelect').innerHTML = `
+                <option value="${student._id}" selected>${student.name} (${student.studentId})</option>
+            `;
+            
+            const enrollModal = new bootstrap.Modal(document.getElementById('enrollStudentModal'));
+            enrollModal.show();
+        } catch (err) {
+            console.error('Error:', err);
+            Swal.fire('خطأ', 'حدث خطأ أثناء تحميل بيانات الحصص', 'error');
+        }
+    };
 
             window.showAssignCardModal = function(uid) {
                 document.getElementById('cardUid').value = uid;
