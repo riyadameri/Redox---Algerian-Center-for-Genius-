@@ -356,7 +356,7 @@ function initializeRFIDReader() {
 
   } catch (err) {
     console.error('RFID initialization error:', err.message);
-    setTimeout(initializeRFIDReader, 5000);
+    // setTimeout(initializeRFIDReader, 5000);
   }
 }
 
@@ -737,6 +737,7 @@ app.delete('/api/classes/:id', authenticate(['admin']), async (req, res) => {
 });
 
 // Enroll Student in Class
+// Enroll Student in Class
 app.post('/api/classes/:classId/enroll/:studentId', authenticate(['admin', 'secretary']), async (req, res) => {
   try {
     // 1. Check if class and student exist
@@ -759,13 +760,13 @@ app.post('/api/classes/:classId/enroll/:studentId', authenticate(['admin', 'secr
       await student.save();
     }
 
-    // 4. Create monthly payments for student
-    const startDate = moment(student.registrationDate);
+    // 4. Create monthly payments for student starting from enrollment date (now)
+    const enrollmentDate = new Date(); // Use current date as enrollment date
     const currentDate = moment();
     const endDate = currentDate.clone().add(1, 'year');
 
     const months = [];
-    let currentDateIter = startDate.clone();
+    let currentDateIter = moment(enrollmentDate); // Start from enrollment date
 
     while (currentDateIter.isBefore(endDate)) {
       months.push(currentDateIter.format('YYYY-MM'));
