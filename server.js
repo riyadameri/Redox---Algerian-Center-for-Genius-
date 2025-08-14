@@ -745,16 +745,36 @@ app.post('/api/classes/:classId/enroll/:studentId', authenticate(['admin', 'secr
     const student = await Student.findById(req.params.studentId);
 
     if (!classObj || !student) {
-      return res.status(404).json({ error: 'الحصة أو الطالب غير موجود' });
+        return res.status(404).json({ error: 'الحصة أو الطالب غير موجود' });
     }
 
+    // 2. Modified condition to allow enrollment in classes with no academic year
+    const isAcademicYearMatch = (
+        !classObj.academicYear || 
+        classObj.academicYear === 'NS' || 
+        classObj.academicYear === 'غير محدد' ||
+        classObj.academicYear === student.academicYear
+    );
+
+    if (!isAcademicYearMatch) {
+        return res.status(400).json({ 
+            error: `لا يمكن تسجيل الطالب في هذه الحصة بسبب عدم تطابق السنة الدراسية (الحصة: ${classObj.academicYear}, الطالب: ${student.academicYear})`
+        });
+    }
+
+
     // 2. Add student to class if not already enrolled
+
+    const isEnrolled = classObj.students.includes(req.params.studentId);
+    if (isEnrolled) {
+      return res.status(400).json({ error: 'الطالب مسجل بالفعل في هذه الحصة' });
+    }
+
     if (!classObj.students.includes(req.params.studentId)) {
       classObj.students.push(req.params.studentId);
       await classObj.save();
     }
 
-    // 3. Add class to student if not already added
     if (!student.classes.includes(req.params.classId)) {
       student.classes.push(req.params.classId);
       await student.save();
@@ -1888,4 +1908,7 @@ process.on('unhandledRejectionMonitor', (reason, p) => {
   // application specific logging, throwing an error, or other logic here
 });
 
-
+process.on('warning', (warning) => {
+  console.error('Warning:', warning);
+  // application specific logging, throwing an error, or other logic here
+});

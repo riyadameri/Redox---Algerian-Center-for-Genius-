@@ -703,32 +703,32 @@ console.log("Student Academic Year:", student.academicYear); // Should log "3AP"
                 if (!code || code === 'NS' || code === 'غير محدد') return 'غير محدد';
                 
                 const years = {
-                    // Secondary (AS)
-                    '1AS': 'الأولى ثانوي',
-                    '2AS': 'الثانية ثانوي',
-                    '3AS': 'الثالثة ثانوي',
-                    // Middle (MS)
-                    '1MS': 'الأولى متوسط',
-                    '2MS': 'الثانية متوسط',
-                    '3MS': 'الثالثة متوسط',
-                    '4MS': 'الرابعة متوسط',
-                    '5MS': 'الخامسة متوسط',
-                    // Primary (AP)
-                    '1AP': 'الأولى ابتدائي',
-                    '2AP': 'الثانية ابتدائي',
-                    '3AP': 'الثالثة ابتدائي',
-                    '4AP': 'الرابعة ابتدائي',
-                    '5AP': 'الخامسة ابتدائي',
-                    // Other possible values
-                    'اولى ابتدائي': 'الأولى ابتدائي',
-                    'ثانية ابتدائي': 'الثانية ابتدائي',
-                    'ثالثة ابتدائي': 'الثالثة ابتدائي',
-                    'رابعة ابتدائي': 'الرابعة ابتدائي',
-                    'خامسة ابتدائي': 'الخامسة ابتدائي'
+                  // Secondary (AS)
+                  '1AS': 'الأولى ثانوي',
+                  '2AS': 'الثانية ثانوي',
+                  '3AS': 'الثالثة ثانوي',
+                  // Middle (MS)
+                  '1MS': 'الأولى متوسط',
+                  '2MS': 'الثانية متوسط',
+                  '3MS': 'الثالثة متوسط',
+                  '4MS': 'الرابعة متوسط',
+                  '5MS': 'الخامسة متوسط',
+                  // Primary (AP)
+                  '1AP': 'الأولى ابتدائي',
+                  '2AP': 'الثانية ابتدائي',
+                  '3AP': 'الثالثة ابتدائي',
+                  '4AP': 'الرابعة ابتدائي',
+                  '5AP': 'الخامسة ابتدائي',
+                  // Other possible values
+                  'اولى ابتدائي': 'الأولى ابتدائي',
+                  'ثانية ابتدائي': 'الثانية ابتدائي',
+                  'ثالثة ابتدائي': 'الثالثة ابتدائي',
+                  'رابعة ابتدائي': 'الرابعة ابتدائي',
+                  'خامسة ابتدائي': 'الخامسة ابتدائي'
                 };
                 
                 return years[code] || code; // Fallback to original code if not found
-            }
+              }
             // Form submission handlers
             document.getElementById('saveStudentBtn').addEventListener('click', async () => {
                 const studentData = {
@@ -1530,60 +1530,83 @@ console.log("Student Academic Year:", student.academicYear); // Should log "3AP"
                 if (remainder === 0) return arabicNumbers[hundreds];
                 return `${arabicNumbers[hundreds]} و ${convertNumberToArabicWords(remainder)}`;
             }
-    window.showEnrollModal = async function(studentId) {
-        currentStudentId = studentId;
-        
-        try {
-            // Load student data first to get academic year
-            const studentResponse = await fetch(`/api/students/${studentId}`, {
-                headers: getAuthHeaders()
-            });
-            
-            if (studentResponse.status === 401) {
-                logout();
-                return;
-            }
-            
-            const student = await studentResponse.json();
-            
-            // Load available classes that match student's academic year or have no academic year specified
-            const response = await fetch('/api/classes', {
-                headers: getAuthHeaders()
-            });
-            
-            const classes = await response.json();
-            
-            const select = document.getElementById('enrollClassSelect');
-            select.innerHTML = '<option value="" selected disabled>اختر حصة</option>';
-            
-            classes.forEach(cls => {
-                // Show class if:
-                // 1. It has no academic year specified (null/undefined)
-                // 2. It matches the student's academic year
-                // 3. Academic year is "غير محدد" or "NS"
-                if (!cls.academicYear || 
-                    cls.academicYear === student.academicYear || 
-                    cls.academicYear === 'NS' || 
-                    cls.academicYear === 'غير محدد') {
+            window.showEnrollModal = async function(studentId) {
+                try {
+                    // Load student data
+                    const studentResponse = await fetch(`/api/students/${studentId}`, {
+                        headers: getAuthHeaders()
+                                      });
                     
-                    const option = document.createElement('option');
-                    option.value = cls._id;
-                    option.textContent = `${cls.name} (${cls.subject}) - ${getAcademicYearName(cls.academicYear)}`;
-                    select.appendChild(option);
+                    if (studentResponse.status === 401) {
+                        logout();
+                        return;
+                    }
+                    
+                    const student = await studentResponse.json();
+                    currentStudentId = student._id;
+                
+            
+                    // Load all classes
+                    const classesResponse = await fetch('/api/classes', {
+                        headers: getAuthHeaders()
+                      });
+                  
+                      const allClasses = await classesResponse.json();
+            
+                    // Load classes the student is already enrolled in
+                    const enrolledClasses = student.classes || [];
+            
+                    // Filter available classes
+                    const availableClasses = allClasses.filter(cls => {
+                        // Check if student is already enrolled
+                        const isEnrolled = enrolledClasses.some(enrolledClass => 
+                          enrolledClass._id === cls._id || enrolledClass === cls._id
+                        );
+                        
+                        if (isEnrolled) return false;
+                  
+                        // For classes with undefined/NS/غير محدد academic year, allow all students
+                        if (!cls.academicYear || cls.academicYear === 'NS' || cls.academicYear === 'غير محدد') {
+                          return true;
+                        }
+                  
+                        // Otherwise, only allow students with matching academic year
+                        return cls.academicYear === student.academicYear;
+                      });
+                  
+            
+                    // Populate class select dropdown
+                    const select = document.getElementById('enrollClassSelect');
+                    select.innerHTML = '<option value="" selected disabled>اختر حصة</option>';
+                    
+                    if (availableClasses.length === 0) {
+                      select.innerHTML = '<option value="" disabled>لا توجد حصص متاحة</option>';
+                    } else {
+                      availableClasses.forEach(cls => {
+                        const option = document.createElement('option');
+                        option.value = cls._id;
+                        option.textContent = `${cls.name} (${cls.subject}) - ${getAcademicYearName(cls.academicYear)}`;
+                        select.appendChild(option);
+                      });
+                    }
+                
+                            
+                    // Set current student in the select
+    // Set current student in the select
+    document.getElementById('enrollStudentSelect').innerHTML = `
+      <option value="${student._id}" selected>${student.name} (${student.studentId})</option>
+    `;
+            
+                    // Show the modal
+                    const enrollModal = new bootstrap.Modal(document.getElementById('enrollStudentModal'));
+                    enrollModal.show();
+                
+            
+                } catch (err) {
+                    console.error('Error:', err);
+                    Swal.fire('خطأ', 'حدث خطأ أثناء تحميل بيانات الحصص', 'error');
                 }
-            });
-            
-            document.getElementById('enrollStudentSelect').innerHTML = `
-                <option value="${student._id}" selected>${student.name} (${student.studentId})</option>
-            `;
-            
-            const enrollModal = new bootstrap.Modal(document.getElementById('enrollStudentModal'));
-            enrollModal.show();
-        } catch (err) {
-            console.error('Error:', err);
-            Swal.fire('خطأ', 'حدث خطأ أثناء تحميل بيانات الحصص', 'error');
-        }
-    };
+            };
 
             window.showAssignCardModal = function(uid) {
                 document.getElementById('cardUid').value = uid;
@@ -1593,187 +1616,177 @@ console.log("Student Academic Year:", student.academicYear); // Should log "3AP"
 
             window.showClassStudents = async function(classId) {
                 try {
-                    // Show loading animation
-                    Swal.fire({
-                        title: 'جاري التحميل...',
-                        html: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>',
-                        allowOutsideClick: false,
-                        showConfirmButton: false
-                    });
-            
-                    // Ensure classId is a string
-                    classId = typeof classId === 'object' ? classId._id : classId;
-                    
-                    // Fetch class data
-                    const classResponse = await fetch(`/api/classes/${classId}`, {
+                  // Show loading animation
+                  Swal.fire({
+                    title: 'جاري التحميل...',
+                    html: '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>',
+                    allowOutsideClick: false,
+                    showConfirmButton: false
+                  });
+              
+                  // Ensure classId is a string
+                  classId = typeof classId === 'object' ? classId._id : classId;
+                  
+                  // Fetch class data
+                  const classResponse = await fetch(`/api/classes/${classId}`, {
+                    headers: getAuthHeaders()
+                  });
+                  
+                  const classObj = await classResponse.json();
+                  
+                  // Fetch students data
+                  const students = await Promise.all(
+                    classObj.students.map(studentId => {
+                      const id = typeof studentId === 'object' ? studentId._id : studentId;
+                      return fetch(`/api/students/${id}`, {
                         headers: getAuthHeaders()
-                    });
-                    
-                    if (classResponse.status === 401) {
-                        Swal.close();
-                        logout();
-                        return;
-                    }
-                    
-                    const classObj = await classResponse.json();
-                    
-                    // Fetch students data
-                    const students = await Promise.all(
-                        classObj.students.map(studentId => {
-                            const id = typeof studentId === 'object' ? studentId._id : studentId;
-                            return fetch(`/api/students/${id}`, {
-                                headers: getAuthHeaders()
-                            }).then(res => res.json())
-                        })
-                    );
-                    
-                    // Fetch payments data
-                    const paymentsResponse = await fetch(`/api/payments?class=${classId}`, {
-                        headers: getAuthHeaders()
-                    });
-                    
-                    if (paymentsResponse.status === 401) {
-                        Swal.close();
-                        logout();
-                        return;
-                    }
-                    
-                    const payments = await paymentsResponse.json();
-            
-                    // Create HTML template with enhanced styling
-                    const studentsHtml = `
-                    <div class="student-management-container">
-                        <div class="class-header bg-primary text-white p-4 rounded mb-4">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <h3 class="mb-1">${classObj.name}</h3>
-                                    <p class="mb-0">${classObj.subject} - ${getAcademicYearName(classObj.academicYear)}</p>
-                                </div>
-                                <button class="btn btn-success" onclick="showEnrollStudentModal('${classId}')">
-                                    <i class="bi bi-plus-lg me-1"></i> تسجيل طالب جديد
-                                </button>
-                            </div>
+                      }).then(res => res.json())
+                    })
+                  );
+                  
+                  // Fetch payments data
+                  const paymentsResponse = await fetch(`/api/payments?class=${classId}`, {
+                    headers: getAuthHeaders()
+                  });
+                  
+                  const payments = await paymentsResponse.json();
+              
+                  // Create HTML template with enhanced styling
+                  const studentsHtml = `
+                  <div class="student-management-container">
+                    <div class="class-header bg-primary text-white p-4 rounded mb-4">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                          <h3 class="mb-1">${classObj.name}</h3>
+                          <p class="mb-0">${classObj.subject} - ${getAcademicYearName(classObj.academicYear)}</p>
+                          ${(!classObj.academicYear || classObj.academicYear === 'NS' || classObj.academicYear === 'غير محدد') ? 
+                            '<p class="mb-0"><small>هذه الحصة متاحة لجميع المستويات</small></p>' : ''}
                         </div>
-                        
-                        ${students.length > 0 ? students.map((student, index) => {
-                            const studentPayments = payments.filter(p => p.student && p.student._id === student._id);
-                            
-                            return `
-                            <div class="student-item card mb-4 shadow-sm" style="animation-delay: ${index * 0.1}s">
-                                <div class="card-header d-flex justify-content-between align-items-center">
-                                    <h5 class="mb-0">${student.name} <small class="text-muted">(${student.studentId})</small></h5>
-                                    <div>
-                                        <button class="btn btn-sm btn-info me-2" onclick="printRegistrationReceipt(${JSON.stringify(student)}, 600)">
-                                            <i class="bi bi-printer me-1"></i> طباعة الإيصال
-                                        </button>
-                                        <button class="btn btn-sm btn-danger" onclick="unenrollStudent('${classId}', '${student._id}')">
-                                            <i class="bi bi-trash me-1"></i> إزالة من الحصة
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="card-body">
-                                    <div class="student-info mb-3">
-                                        <div class="d-flex align-items-center mb-2">
-                                            <i class="bi bi-person-badge me-2"></i>
-                                            <span>ولي الأمر: ${student.parentName || 'غير مسجل'}</span>
-                                        </div>
-                                        <div class="d-flex align-items-center">
-                                            <i class="bi bi-telephone me-2"></i>
-                                            <span>${student.parentPhone || 'غير مسجل'}</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <h6 class="text-muted mb-3">حالة المدفوعات:</h6>
-                                    
-                                    ${studentPayments.length > 0 ? `
-                                        <div class="table-responsive">
-                                            <table class="table table-striped table-hover">
-                                                <thead class="table-dark">
-                                                    <tr>
-                                                        <th>إجراء</th>
-                                                        <th>الحالة</th>
-                                                        <th>المبلغ</th>
-                                                        <th>الشهر</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    ${studentPayments.map(payment => `
-                                                        <tr>
-                                                            <td>
-                                                                <button class="btn btn-sm ${payment.status !== 'paid' ? 'btn-success' : 'btn-secondary'}" 
-                                                                    onclick="showPaymentModal('${payment._id}')" 
-                                                                    ${payment.status === 'paid' ? 'disabled' : ''}>
-                                                                    <i class="bi ${payment.status !== 'paid' ? 'bi-cash' : 'bi-check2'} me-1"></i>
-                                                                    ${payment.status !== 'paid' ? 'تسديد' : 'مسدد'}
-                                                                </button>
-                                                            </td>
-                                                            <td>
-                                                                <span class="badge ${payment.status === 'paid' ? 'bg-success' : 
-                                                                                payment.status === 'pending' ? 'bg-warning' : 'bg-danger'}">
-                                                                    ${payment.status === 'paid' ? 'مسدد' : 
-                                                                    payment.status === 'pending' ? 'قيد الانتظار' : 'متأخر'}
-                                                                </span>
-                                                            </td>
-                                                            <td>${payment.amount} د.ك</td>
-                                                            <td>${payment.month}</td>
-                                                        </tr>
-                                                    `).join('')}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    ` : `
-                                        <div class="empty-state text-center p-4 bg-light rounded">
-                                            <i class="bi bi-wallet2 text-muted" style="font-size: 2.5rem;"></i>
-                                            <p class="mt-2 mb-0">لا توجد مدفوعات مسجلة لهذا الطالب</p>
-                                        </div>
-                                    `}
-                                </div>
-                            </div>
-                            `;
-                        }).join('') : `
-                        <div class="empty-state text-center p-5 bg-light rounded">
-                            <i class="bi bi-people text-muted" style="font-size: 3rem;"></i>
-                            <h5 class="mt-3">لا يوجد طلاب مسجلين في هذه الحصة</h5>
-                            <p class="text-muted">يمكنك تسجيل طلاب جديدين باستخدام زر "تسجيل طالب جديد" بالأعلى</p>
-                        </div>
-                        `}
+                        <button class="btn btn-success" onclick="showEnrollStudentModal('${classId}')">
+                          <i class="bi bi-plus-lg me-1"></i> تسجيل طالب جديد
+                        </button>
+                      </div>
                     </div>
-                    `;
                     
-                    // Show the modal with all student data
-                    Swal.fire({
-                        title: `إدارة طلاب الحصة`,
-                        html: studentsHtml,
-                        width: '900px',
-                        showConfirmButton: false,
-                        showCloseButton: true,
-                        customClass: {
-                            popup: 'animate__animated animate__fadeInUp'
-                        },
-                        willOpen: () => {
-                            // Add animation to student items after they're rendered
-                            setTimeout(() => {
-                                const items = document.querySelectorAll('.student-item');
-                                items.forEach(item => {
-                                    item.style.opacity = '1';
-                                });
-                            }, 100);
-                        }
-                    });
-            
+                    ${students.length > 0 ? students.map((student, index) => {
+                      const studentPayments = payments.filter(p => p.student && p.student._id === student._id);
+                      
+                      return `
+                      <div class="student-item card mb-4 shadow-sm" style="animation-delay: ${index * 0.1}s">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                          <h5 class="mb-0">${student.name} <small class="text-muted">(${student.studentId})</small></h5>
+                          <div>
+                            <button class="btn btn-sm btn-info me-2" onclick="printRegistrationReceipt(${JSON.stringify(student)}, 600)">
+                              <i class="bi bi-printer me-1"></i> طباعة الإيصال
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="unenrollStudent('${classId}', '${student._id}')">
+                              <i class="bi bi-trash me-1"></i> إزالة من الحصة
+                            </button>
+                          </div>
+                        </div>
+                        <div class="card-body">
+                          <div class="student-info mb-3">
+                            <div class="d-flex align-items-center mb-2">
+                              <i class="bi bi-person-badge me-2"></i>
+                              <span>ولي الأمر: ${student.parentName || 'غير مسجل'}</span>
+                            </div>
+                            <div class="d-flex align-items-center">
+                              <i class="bi bi-telephone me-2"></i>
+                              <span>${student.parentPhone || 'غير مسجل'}</span>
+                            </div>
+                          </div>
+                          
+                          <h6 class="text-muted mb-3">حالة المدفوعات:</h6>
+                          
+                          ${studentPayments.length > 0 ? `
+                            <div class="table-responsive">
+                              <table class="table table-striped table-hover">
+                                <thead class="table-dark">
+                                  <tr>
+                                    <th>إجراء</th>
+                                    <th>الحالة</th>
+                                    <th>المبلغ</th>
+                                    <th>الشهر</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  ${studentPayments.map(payment => `
+                                    <tr>
+                                      <td>
+                                        <button class="btn btn-sm ${payment.status !== 'paid' ? 'btn-success' : 'btn-secondary'}" 
+                                          onclick="showPaymentModal('${payment._id}')" 
+                                          ${payment.status === 'paid' ? 'disabled' : ''}>
+                                          <i class="bi ${payment.status !== 'paid' ? 'bi-cash' : 'bi-check2'} me-1"></i>
+                                          ${payment.status !== 'paid' ? 'تسديد' : 'مسدد'}
+                                        </button>
+                                      </td>
+                                      <td>
+                                        <span class="badge ${payment.status === 'paid' ? 'bg-success' : 
+                                                        payment.status === 'pending' ? 'bg-warning' : 'bg-danger'}">
+                                          ${payment.status === 'paid' ? 'مسدد' : 
+                                          payment.status === 'pending' ? 'قيد الانتظار' : 'متأخر'}
+                                        </span>
+                                      </td>
+                                      <td>${payment.amount} د.ك</td>
+                                      <td>${payment.month}</td>
+                                    </tr>
+                                  `).join('')}
+                                </tbody>
+                              </table>
+                            </div>
+                          ` : `
+                            <div class="empty-state text-center p-4 bg-light rounded">
+                              <i class="bi bi-wallet2 text-muted" style="font-size: 2.5rem;"></i>
+                              <p class="mt-2 mb-0">لا توجد مدفوعات مسجلة لهذا الطالب</p>
+                            </div>
+                          `}
+                        </div>
+                      </div>
+                      `;
+                    }).join('') : `
+                    <div class="empty-state text-center p-5 bg-light rounded">
+                      <i class="bi bi-people text-muted" style="font-size: 3rem;"></i>
+                      <h5 class="mt-3">لا يوجد طلاب مسجلين في هذه الحصة</h5>
+                      <p class="text-muted">يمكنك تسجيل طلاب جديدين باستخدام زر "تسجيل طالب جديد" بالأعلى</p>
+                    </div>
+                    `}
+                  </div>
+                  `;
+                  
+                  // Show the modal with all student data
+                  Swal.fire({
+                    title: `إدارة طلاب الحصة`,
+                    html: studentsHtml,
+                    width: '900px',
+                    showConfirmButton: false,
+                    showCloseButton: true,
+                    customClass: {
+                      popup: 'animate__animated animate__fadeInUp'
+                    },
+                    willOpen: () => {
+                      // Add animation to student items after they're rendered
+                      setTimeout(() => {
+                        const items = document.querySelectorAll('.student-item');
+                        items.forEach(item => {
+                          item.style.opacity = '1';
+                        });
+                      }, 100);
+                    }
+                  });
+              
                 } catch (err) {
-                    console.error('Error:', err);
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'خطأ',
-                        text: 'حدث خطأ أثناء جلب بيانات الطلاب',
-                        confirmButtonText: 'حسناً',
-                        customClass: {
-                            popup: 'animate__animated animate__headShake'
-                        }
-                    });
+                  console.error('Error:', err);
+                  Swal.fire({
+                    icon: 'error',
+                    title: 'خطأ',
+                    text: 'حدث خطأ أثناء جلب بيانات الطلاب',
+                    confirmButtonText: 'حسناً',
+                    customClass: {
+                      popup: 'animate__animated animate__headShake'
+                    }
+                  });
                 }
-            };
+              };
 
     // Helper function to show payment modal
     window.showPaymentModal = async function(paymentId) {
@@ -1878,7 +1891,6 @@ console.log("Student Academic Year:", student.academicYear); // Should log "3AP"
     // Helper function to show student enrollment modal
     window.showEnrollStudentModal = async function(classId) {
         try {
-            // Fetch all students not already enrolled in this class
             const response = await fetch(`/api/students`, {
                 headers: getAuthHeaders()
             });
@@ -1902,20 +1914,29 @@ console.log("Student Academic Year:", student.academicYear); // Should log "3AP"
             
             const classObj = await classResponse.json();
             
-            // Filter students by academic year and those not already enrolled
-            const availableStudents = allStudents.filter(student => 
-                student.academicYear === classObj.academicYear && 
-                !classObj.students.includes(student._id)
-            );
+            // Filter students - allow all students if class has no academic year
+            const availableStudents = allStudents.filter(student => {
+                // If class has no academic year or it's "NS" or "غير محدد", allow all students
+                if (!classObj.academicYear || 
+                    classObj.academicYear === 'NS' || 
+                    classObj.academicYear === 'غير محدد') {
+                    return !classObj.students.includes(student._id);
+                }
+                
+                // Otherwise, only allow students with matching academic year
+                return student.academicYear === classObj.academicYear && 
+                       !classObj.students.includes(student._id);
+            });
             
             if (availableStudents.length === 0) {
                 Swal.fire({
                     icon: 'info',
                     title: 'لا يوجد طلاب متاحين',
-                    text: 'لا يوجد طلاب غير مسجلين في هذه الحصة من نفس السنة الدراسية',
+                    text: 'لا يوجد طلاب غير مسجلين في هذه الحصة',
                     confirmButtonText: 'حسناً'
                 });
                 return;
+    
             }
             
             const { value: studentId } = await Swal.fire({
