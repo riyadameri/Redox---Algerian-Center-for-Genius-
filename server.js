@@ -1939,7 +1939,7 @@ app.get('/student/status/:studentId', async (req, res) => {
 });
 
 
-initializeRFIDReader();
+// initializeRFIDReader();
 
 
 
