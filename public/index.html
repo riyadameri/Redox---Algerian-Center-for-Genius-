@@ -203,43 +203,70 @@
 
 
                         <!-- Student Accounts Section -->
+
+
+<!-- Student Accounts Section -->
 <div id="student-accounts" class="content-section">
     <div class="card shadow-sm">
-        <div class="card-header bg-primary text-white">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
             <h5 class="mb-0">حسابات الطلاب</h5>
+            <div>
+                <button class="btn btn-primary me-2" onclick="exportStudentAccounts()">
+                    <i class="bi bi-download me-1"></i> تصدير
+                </button>
+                <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addStudentAccountModal">
+                    <i class="bi bi-plus-lg me-1"></i> إضافة حساب
+                </button>
+            </div>
         </div>
         <div class="card-body">
             <div class="row mb-3">
-                <div class="col-md-4">
-                    <label for="accountStatusFilter" class="form-label">حالة الحساب:</label>
-                    <select id="accountStatusFilter" class="form-select" onchange="loadStudentAccounts()">
-                        <option value="">الكل</option>
+                <div class="col-md-3">
+                    <label for="studentAccountStatusFilter" class="form-label">حالة الحساب:</label>
+                    <select id="studentAccountStatusFilter" class="form-select" onchange="loadStudentAccounts()">
+                        <option value="">كل الحالات</option>
                         <option value="active">نشط</option>
                         <option value="inactive">غير نشط</option>
                         <option value="pending">قيد الانتظار</option>
                     </select>
                 </div>
-                <div class="col-md-4">
-                    <label for="accountSearchInput" class="form-label">بحث:</label>
-                    <input type="text" id="accountSearchInput" class="form-control" placeholder="ابحث عن حساب...">
+                <div class="col-md-3">
+                    <label for="studentAccountYearFilter" class="form-label">السنة الدراسية:</label>
+                    <select id="studentAccountYearFilter" class="form-select" onchange="loadStudentAccounts()">
+                        <option value="">كل السنوات</option>
+                        <option value="1AS">الأولى ثانوي</option>
+                        <option value="2AS">الثانية ثانوي</option>
+                        <option value="3AS">الثالثة ثانوي</option>
+                        <option value="1MS">الأولى متوسط</option>
+                        <option value="2MS">الثانية متوسط</option>
+                        <option value="3MS">الثالثة متوسط</option>
+                        <option value="4MS">الرابعة متوسط</option>
+                        <option value="5MS">الخامسة متوسط</option>
+                        <option value="1Ap">الأولى إبتدائي</option>
+                        <option value="2Ap">الثانية إبتدائي</option>
+                        <option value="3Ap">الثالثة إبتدائي</option>
+                        <option value="4Ap">الرابعة إبتدائي</option>
+                        <option value="5Ap">الخامسة إبتدائي</option>
+                    </select>
                 </div>
-                <div class="col-md-4 d-flex align-items-end">
-                    <button class="btn btn-primary" onclick="loadStudentAccounts()">
-                        <i class="bi bi-search me-1"></i> بحث
-                    </button>
-                    <button class="btn btn-success ms-2" data-bs-toggle="modal" data-bs-target="#addStudentAccountModal">
-                        <i class="bi bi-plus-lg me-1"></i> إضافة حساب
-                    </button>
+                <div class="col-md-6">
+                    <label for="studentAccountSearch" class="form-label">بحث:</label>
+                    <div class="input-group">
+                        <input type="text" id="studentAccountSearch" class="form-control" placeholder="ابحث عن طالب...">
+                        <button class="btn btn-outline-secondary" onclick="loadStudentAccounts()">
+                            <i class="bi bi-search"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
             
             <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead class="table-light">
+                <table class="table table-striped table-hover">
+                    <thead>
                         <tr>
                             <th>#</th>
-                            <th>الاسم</th>
                             <th>رقم الطالب</th>
+                            <th>الاسم</th>
                             <th>البريد الإلكتروني</th>
                             <th>السنة الدراسية</th>
                             <th>الحالة</th>
@@ -253,96 +280,65 @@
                 </table>
             </div>
             
-            <nav aria-label="Page navigation">
-                <ul class="pagination justify-content-center mt-3" id="accountsPagination">
+            <nav>
+                <ul id="studentAccountsPagination" class="pagination justify-content-center">
                     <!-- Pagination will be added here -->
                 </ul>
             </nav>
         </div>
     </div>
-</div><div id="student-accounts" class="content-section">
-    <div class="card shadow-sm">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">إدارة حسابات الطلاب</h5>
-        <div>
-          <button class="btn btn-primary me-2" onclick="exportStudentAccounts()">
-            <i class="bi bi-download me-1"></i> تصدير
-          </button>
-          <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addStudentAccountModal">
-            <i class="bi bi-plus-lg me-1"></i> إضافة حساب
-          </button>
-        </div>
-      </div>
-      <div class="card-body">
-        <div class="row mb-3">
-          <div class="col-md-3">
-            <select id="studentAccountStatusFilter" class="form-select" onchange="loadStudentAccounts()">
-              <option value="">كل الحالات</option>
-              <option value="active">نشط</option>
-              <option value="inactive">غير نشط</option>
-              <option value="pending">قيد الانتظار</option>
-            </select>
-          </div>
-          <div class="col-md-3">
-            <select id="studentAccountYearFilter" class="form-select" onchange="loadStudentAccounts()">
-              <option value="">كل السنوات</option>
-              <option value="1AS">الأولى ثانوي</option>
-              <option value="2AS">الثانية ثانوي</option>
-              <option value="3AS">الثالثة ثانوي</option>
-              <option value="1MS">الأولى متوسط</option>
-              <option value="2MS">الثانية متوسط</option>
-              <option value="3MS">الثالثة متوسط</option>
-              <option value="4MS">الرابعة متوسط</option>
-              <option value="5MS">الخامسة متوسط</option>
-              <option value="1Ap">الأولى إبتدائي</option>
-              <option value="2Ap">الثانية إبتدائي</option>
-              <option value="3Ap">الثالثة إبتدائي</option>
-              <option value="4Ap">الرابعةإبتدائي</option>
-              <option value="5Ap">الخامسةإبتدائي</option>
+</div>
 
-              
-              <!-- Add other academic year options -->
-            </select>
-          </div>
-          <div class="col-md-6">
-            <div class="input-group">
-              <input type="text" id="studentAccountSearch" class="form-control" placeholder="ابحث عن طالب...">
-              <button class="btn btn-outline-secondary" onclick="loadStudentAccounts()">
-                <i class="bi bi-search"></i>
-              </button>
+<!-- Add Student Account Modal -->
+<div class="modal fade" id="addStudentAccountModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">إضافة حساب طالب جديد</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="addStudentAccountForm">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="accountStudentSelect" class="form-label">اختر الطالب:</label>
+                <select class="form-select" id="accountStudentSelect" required>
+                  <option value="" selected disabled>اختر طالب</option>
+                </select>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="accountUsername" class="form-label">اسم المستخدم:</label>
+                <input type="text" class="form-control" id="accountUsername" required>
+              </div>
             </div>
-          </div>
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label for="accountPassword" class="form-label">كلمة المرور:</label>
+                <input type="password" class="form-control" id="accountPassword" required>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label for="accountConfirmPassword" class="form-label">تأكيد كلمة المرور:</label>
+                <input type="password" class="form-control" id="accountConfirmPassword" required>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label for="accountEmail" class="form-label">البريد الإلكتروني:</label>
+              <input type="email" class="form-control" id="accountEmail">
+            </div>
+          </form>
         </div>
-        
-        <div class="table-responsive">
-          <table class="table table-striped table-hover">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>رقم الطالب</th>
-                <th>الاسم</th>
-                <th>البريد الإلكتروني</th>
-                <th>السنة الدراسية</th>
-                <th>الحالة</th>
-                <th>تاريخ الإنشاء</th>
-                <th>إجراءات</th>
-              </tr>
-            </thead>
-            <tbody id="studentAccountsTable">
-              <!-- Will be populated by JavaScript -->
-            </tbody>
-          </table>
-        </div>
-        
-        <nav>
-          <ul id="studentAccountsPagination" class="pagination justify-content-center">
-            <!-- Pagination will be added here -->
-          </ul>
-        </nav>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-info" onclick="loadStudentsForAccountCreation()">
+                    <i class="bi bi-arrow-clockwise"></i> إعادة تحميل الطلاب
+                </button>
+                <button type="button" class="btn btn-primary" id="saveStudentAccountBtn" onclick="saveStudentAccount()">حفظ الحساب</button>
+            </div>
+                    </div>
       </div>
     </div>
-  </div>
-                        <!-- Registration Requests Section -->
+  </div>                      <!-- Registration Requests Section -->
                         <div id="registration-requests" class="content-section">
                             <div class="card shadow-sm">
                                 <div class="card-header bg-primary text-white">
@@ -1123,4 +1119,4 @@
     <script src="script.js"></script>
 </body>
 
-</html>
+</html>          

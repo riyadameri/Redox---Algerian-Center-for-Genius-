@@ -18,7 +18,7 @@ const server = require('http').createServer(app);
 
 const io = socketio(server, {
   cors: {
-    origin: "http://localhost:3000", // or "*" for development
+    origin: "http://localhost:4200", // or "*" for development
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true
   },
@@ -28,12 +28,11 @@ const io = socketio(server, {
 
 // Middleware
 app.use(cors({
-  origin: '*',
+  origin:'*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
 }));
-
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -43,12 +42,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 const userSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  role: { type: String, enum: ['admin', 'secretary', 'accountant', 'teacher'], required: true },
+  role: { type: String, enum: ['admin', 'secretary', 'accountant', 'teacher', 'student'], required: true },
   fullName: String,
   phone: String,
   email: String,
   createdAt: { type: Date, default: Date.now },
-  active: { type: Boolean, default: true }
+  active: { type: Boolean, default: true },
+  student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student' } // Add this line
 });
 
 const StudentsAccountsSchema = new mongoose.Schema({
@@ -366,25 +366,54 @@ mongoose.connect(process.env.MONGODB_URI)
   .catch(err => console.error("Error connecting to Database:", err));
 
 // JWT Authentication Middleware
+// Updated authenticate middleware
 const authenticate = (roles = []) => {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'غير مصرح بالدخول' });
+    
+    if (!token) {
+      if (req.path.startsWith('/student')) {
+        return res.redirect('/student/login');
+      }
+      return res.status(401).json({ error: 'Authorization token required' });
+    }
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = decoded;
+      
+      if (roles.includes('student') || decoded.role === 'student') {
+        const user = await User.findById(decoded._id).populate('student');
+        if (!user) {
+          if (req.path.startsWith('/student')) {
+            return res.redirect('/student/login');
+          }
+          return res.status(403).json({ error: 'Invalid student account' });
+        }
+        
+        req.user = user;
+        req.student = user.student;
+      } else {
+        req.user = decoded;
+      }
 
       if (roles.length && !roles.includes(decoded.role)) {
-        return res.status(403).json({ error: 'غير مصرح بالوصول لهذه الصلاحية' });
+        if (req.path.startsWith('/student')) {
+          return res.redirect('/student/login');
+        }
+        return res.status(403).json({ error: 'Insufficient permissions' });
       }
 
       next();
     } catch (err) {
-      res.status(401).json({ error: 'رمز الدخول غير صالح' });
+      console.error('Token verification error:', err);
+      if (req.path.startsWith('/student')) {
+        return res.redirect('/student/login');
+      }
+      return res.status(401).json({ error: 'Invalid or expired token' });
     }
   };
 };
+
 
 // Email Configuration
 const transporter = nodemailer.createTransport({
@@ -1695,37 +1724,87 @@ app.get('/api/student-accounts', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// Student Accounts API
+app.post('/api/student-accounts', async (req, res) => {
+  try {
+    const { username, password, studentId, email } = req.body;
 
+    // Check if student exists
+    const student = await Student.findById(studentId);
+    if (!student) {
+      return res.status(404).json({ error: 'الطالب غير موجود' });
+    }
+
+    // Check if account already exists
+    const existingAccount = await User.findOne({ 
+      $or: [{ username }, { student: studentId }] 
+    });
+    
+    if (existingAccount) {
+      return res.status(400).json({ error: 'الحساب موجود بالفعل لهذا الطالب' });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create account
+    const account = new User({
+      username,
+      password: hashedPassword,
+      role: 'student',
+      fullName: student.name,
+      phone: student.parentPhone,
+      email: email || student.parentEmail,
+      student: studentId // Associate the student
+    });
+
+    await account.save();
+
+    // Update student record
+    student.hasAccount = true;
+    await student.save();
+
+    res.status(201).json({
+      _id: account._id,
+      username: account.username,
+      studentId: student.studentId,
+      fullName: student.name
+    });
+  } catch (err) {
+    console.error('Error creating student account:', err);
+    res.status(500).json({ error: 'حدث خطأ أثناء إنشاء الحساب' });
+  }
+});
 
 // Student Login Route
 app.post('/api/student/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const user = await User.findOne({ username, role: 'student' });
-
+    const user = await User.findOne({ username }).populate('student');
+    
     if (!user || !(await bcrypt.compare(password, user.password))) {
-      return res.status(401).json({ error: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
+      return res.status(401).json({ error: 'البيانات غير صحيحة' });
     }
-
-    const student = await Student.findOne({ studentId: user.studentId });
-
-    if (!student) {
-      return res.status(404).json({ error: 'الطالب غير موجود' });
-    }
-
-    const token = jwt.sign(
-      { id: user._id, username: user.username, role: user.role, studentId: user.studentId },
-      process.env.JWT_SECRET,
-      { expiresIn: '8h' }
-    );
-
+    
+    // Include student ID in the token payload if available
+    const tokenPayload = { 
+      _id: user._id, 
+      username: user.username, 
+      role: user.role,
+      studentId: user.student?._id 
+    };
+    
+    const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '8h' });
+    
     res.json({ 
       token, 
       user: { 
+        _id: user._id, 
         username: user.username, 
         role: user.role, 
-        fullName: user.fullName,
-        studentId: user.studentId
+        fullName: user.fullName, 
+        studentId: user.student?._id,
+        student: user.student // Include the populated student data
       } 
     });
   } catch (err) {
@@ -1734,9 +1813,12 @@ app.post('/api/student/login', async (req, res) => {
 });
 
 // Get Student Data
+// Add authentication middleware to the route
 app.get('/api/student/data', authenticate(['student']), async (req, res) => {
   try {
-    const student = await Student.findOne({ studentId: req.user.studentId })
+    
+    // Get user from the request (added by authenticate middleware)
+    const student = await Student.findById(req.user.student)
       .populate({
         path: 'classes',
         populate: [
@@ -1746,10 +1828,9 @@ app.get('/api/student/data', authenticate(['student']), async (req, res) => {
       });
 
     if (!student) {
-      return res.status(404).json({ error: 'الطالب غير موجود' });
+      return res.status(404).json({ error: 'Student not found' });
     }
-
-    // Get upcoming classes (next 7 days)
+        // Get upcoming classes (next 7 days)
     const today = new Date();
     const nextWeek = new Date();
     nextWeek.setDate(today.getDate() + 7);
@@ -1806,8 +1887,18 @@ app.get('/api/student/data', authenticate(['student']), async (req, res) => {
       payments
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('Error in /api/student/data:', {
+      error: err.message,
+      stack: err.stack,
+      user: req.user,
+      timestamp: new Date()
+    });
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: err.message 
+    });
   }
+
 });
 
 // Student Change Password
@@ -1850,37 +1941,29 @@ app.get('/student/status/:studentId', async (req, res) => {
 
 initializeRFIDReader();
 
-// Main application entry point
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
 
 
-// Admin dashboard
-app.get('/admin', authenticate(['admin']), (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-});
-
-// Teacher dashboard
-app.get('/teacher', authenticate(['teacher']), (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'teacher.html'));
-});
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Student routes
 app.get('/student', (req, res) => {
-  res.redirect('/student/login');
-});
-
-app.get('/student/register', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'student-register.html'));
+  res.sendFile(path.join(__dirname, 'public', 'student.html'));
 });
 
 app.get('/student/login', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'student-login.html'));
+  res.sendFile(path.join(__dirname, 'public', 'student.html'));
 });
 
+app.get('/student/register', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'student.html'));
+});
 app.get('/student/dashboard', authenticate(['student']), (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'student-dashboard.html'));
+  res.sendFile(path.join(__dirname, 'public', 'student.html'));
+});
+
+// Serve index.html for all unknown routes (SPA)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'student.html'));
 });
 
 const PORT = process.env.PORT || 4200;
@@ -1912,3 +1995,4 @@ process.on('warning', (warning) => {
   console.error('Warning:', warning);
   // application specific logging, throwing an error, or other logic here
 });
+app.use('/student', require('./routes/student'));

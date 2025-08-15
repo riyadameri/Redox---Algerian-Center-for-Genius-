@@ -1,4 +1,4 @@
-            // Global variables
+// Global variables
             let currentUser = null;
             let currentPayment = null;
             let currentClassId = null;
@@ -101,8 +101,7 @@
                 const token = localStorage.getItem('token');
                 return {
                     'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                    'credentials': 'include'  // Add this line
+                    'Content-Type': 'application/json'
                 };
             }
 
@@ -145,6 +144,14 @@
                 loadLiveClasses();
                 loadDataForLiveClassModal();
 
+                document.getElementById('accountStatusFilter').addEventListener('change', loadStudentAccounts);
+                document.getElementById('accountSearchInput').addEventListener('keyup', function(e) {
+                    if (e.key === 'Enter') {
+                        loadStudentAccounts();
+                    }
+                });
+                
+                loadStudentAccounts();
                 
             //serarsh 
                 document.getElementById('studentSearchInput').addEventListener('input', searchStudents);
@@ -3595,25 +3602,39 @@ console.log("Student Academic Year:", student.academicYear); // Should log "3AP"
             
             filteredStudents.forEach((student, index) => {
                 const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${index + 1}</td>
-                    <td>${student.name}</td>
-                    <td>${student.studentId}</td>
-                    <td>${student.parentName || '-'}</td>
-                    <td>${getAcademicYearName(student.academicYear) || '-'}</td>
-                    <td>${student.classes?.length || 0}</td>
-                    <td>
-                        <button class="btn btn-sm btn-outline-primary btn-action" onclick="editStudent('${student._id}')">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-danger btn-action" onclick="deleteStudent('${student._id}')">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-success btn-action" onclick="showEnrollModal('${student._id}')">
-                            <i class="bi bi-book"></i>
-                        </button>
-                    </td>
-                `;
+// Modify your student table row to include the create account button
+// Inside your loadStudents() function, update the action buttons:
+// Modify your student table row to include the create account button
+// Inside your loadStudents() function, update the action buttons:
+// In your loadStudents() function, modify the table row to show account status
+// In your loadStudents() function, modify the table row to show account status
+// In your loadStudents() function, modify the table row to show account status
+row.innerHTML = `
+    <td>${index + 1}</td>
+    <td>${student.name}</td>
+    <td>${student.studentId}</td>
+    <td>${student.parentName || '-'}</td>
+    <td>${getAcademicYearName(student.academicYear) || '-'}</td>
+    <td>${student.classes?.length || 0}</td>
+    <td>
+        ${student.hasAccount ? 
+            '<span class="badge bg-success">لديه حساب</span>' : 
+            '<span class="badge bg-secondary">لا يوجد حساب</span>'}
+    </td>
+    <td>
+        <button class="btn btn-sm btn-outline-primary btn-action" onclick="editStudent('${student._id}')">
+            <i class="bi bi-pencil"></i>
+        </button>
+        <button class="btn btn-sm btn-outline-danger btn-action" onclick="deleteStudent('${student._id}')">
+            <i class="bi bi-trash"></i>
+        </button>
+        ${!student.hasAccount ? `
+            <button class="btn btn-sm btn-outline-info btn-action" onclick="showCreateAccountModal('${student._id}')">
+                <i class="bi bi-person-plus"></i> إنشاء حساب
+            </button>
+        ` : ''}
+    </td>
+`;
                 tableBody.appendChild(row);
             });
         } catch (err) {
@@ -4209,253 +4230,728 @@ async function rejectRegistration(studentId) {
     }
 }
 
-async function printRegistrationReceipt(studentData, amount = 600) {
-    return new Promise((resolve) => {
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        document.body.appendChild(iframe);
+// Load student accounts
+// Load student accounts
+
+  // Create student account
+  async function createStudentAccount() {
+    const studentId = document.getElementById('accountStudentSelect').value;
+    const username = document.getElementById('accountUsername').value.trim();
+    const password = document.getElementById('accountPassword').value;
+    const confirmPassword = document.getElementById('accountConfirmPassword').value;
+    const email = document.getElementById('accountEmail').value.trim();
+  
+    // Validation
+    if (!studentId) {
+      Swal.fire('خطأ', 'يجب اختيار طالب', 'error');
+      return;
+    }
+  
+    if (!username) {
+      Swal.fire('خطأ', 'يجب إدخال اسم المستخدم', 'error');
+      return;
+    }
+  
+    if (password !== confirmPassword) {
+      Swal.fire('خطأ', 'كلمة المرور وتأكيدها غير متطابقين', 'error');
+      return;
+    }
+  
+    try {
+      Swal.fire({
+        title: 'جاري إنشاء الحساب',
+        html: 'الرجاء الانتظار...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+  
+      const response = await fetch('/api/student-accounts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify({
+          username,
+          password,
+          studentId,
+          email
+        })
+      });
+  
+      if (response.ok) {
+        const result = await response.json();
+        Swal.fire({
+          title: 'نجاح',
+          html: `تم إنشاء حساب الطالب بنجاح<br>اسم المستخدم: ${result.username}`,
+          icon: 'success'
+        });
         
-        const doc = iframe.contentWindow.document;
+        // Reset form and hide modal
+        document.getElementById('addStudentAccountForm').reset();
+        bootstrap.Modal.getInstance(document.getElementById('addStudentAccountModal')).hide();
         
-        doc.open();
-        doc.write(`
-            <!DOCTYPE html>
-            <html lang="ar" dir="rtl">
-            <head>
-                <meta charset="UTF-8">
-                <title>إيصال تسجيل طالب</title>
-                <style>
-                    @page {
-                        size: A4;
-                        margin: 0;
-                    }
-                    body {
-                        width: 210mm;
-                        height: 297mm;
-                        margin: 0;
-                        padding: 0;
-                        font-family: 'Arial', sans-serif;
-                        color: #333;
-                        line-height: 1.6;
-                        display: flex;
-                        justify-content: center;
-                        align-items: center;
-                    }
-                    .receipt-container {
-                        width: 150mm;
-                        height: auto;
-                        border: 2px solid #3498db;
-                        border-radius: 5px;
-                        padding: 10mm;
-                        box-sizing: border-box;
-                        position: relative;
-                        overflow: hidden;
-                        box-shadow: 0 0 10px rgba(0,0,0,0.1);
-                    }
-                    .logo-container {
-                        background-color: #000;
-                        padding: 10px;
-                        border-radius: 5px;
-                        display: inline-block;
-                        margin-bottom: 15px;
-                    }
-                    .logo {
-                        height: 40px;
-                        filter: brightness(0) invert(1);
-                    }
-                    .header {
-                        text-align: center;
-                        margin-bottom: 15px;
-                        border-bottom: 2px solid #3498db;
-                        padding-bottom: 10px;
-                    }
-                    .title {
-                        color: #2c3e50;
-                        margin: 10px 0 5px;
-                        font-size: 20px;
-                    }
-                    .subtitle {
-                        color: #7f8c8d;
-                        font-size: 12px;
-                    }
-                    .receipt-details {
-                        margin: 15px 0;
-                    }
-                    .detail-row {
-                        display: flex;
-                        justify-content: space-between;
-                        margin-bottom: 10px;
-                        padding-bottom: 6px;
-                        border-bottom: 1px dashed #ddd;
-                        font-size: 12px;
-                    }
-                    .detail-label {
-                        font-weight: bold;
-                        color: #2c3e50;
-                        width: 40%;
-                    }
-                    .detail-value {
-                        color: #34495e;
-                        width: 60%;
-                        text-align: left;
-                    }
-                    .amount-section {
-                        background-color: #f8f9fa;
-                        padding: 10px;
-                        border-radius: 5px;
-                        margin: 15px 0;
-                        text-align: center;
-                        border: 1px solid #eee;
-                    }
-                    .amount {
-                        font-size: 22px;
-                        color: #e74c3c;
-                        font-weight: bold;
-                        margin: 5px 0;
-                    }
-                    .barcode {
-                        text-align: center;
-                        margin: 15px 0;
-                        padding: 8px;
-                        background-color: #f8f9fa;
-                        border-radius: 5px;
-                    }
-                    .footer {
-                        text-align: center;
-                        margin-top: 20px;
-                        font-size: 10px;
-                        color: #7f8c8d;
-                        border-top: 2px solid #3498db;
-                        padding-top: 8px;
-                    }
-                    .signature {
-                        display: flex;
-                        justify-content: space-between;
-                        margin-top: 30px;
-                    }
-                    .signature-line {
-                        border-top: 1px solid #333;
-                        width: 150px;
-                        text-align: center;
-                        padding-top: 5px;
-                        font-size: 10px;
-                    }
-                    .watermark {
-                        position: absolute;
-                        opacity: 0.05;
-                        font-size: 80px;
-                        color: #3498db;
-                        transform: rotate(-30deg);
-                        left: 50%;
-                        top: 50%;
-                        z-index: 0;
-                        font-weight: bold;
-                        pointer-events: none;
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="receipt-container">
-                    <div class="watermark">${studentData.studentId}</div>
-                    
-                    <div class="header">
-                        <div class="logo-container">
-                            <img src="https://redox-club.onrender.com/assets/redox-logo-white.png" class="logo">
-                        </div>
-                        <h1 class="title">إيصال تسجيل طالب</h1>
-                        <p class="subtitle">${new Date().toLocaleDateString('ar-EG', { 
-                            weekday: 'long', 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric' 
-                        })}</p>
-                    </div>
-                    
-                    <div class="receipt-details">
-                        <div class="detail-row">
-                            <span class="detail-label">رقم الإيصال:</span>
-                            <span class="detail-value">REG-${Date.now().toString().slice(-6)}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">اسم الطالب:</span>
-                            <span class="detail-value">${studentData.name}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">رقم الطالب:</span>
-                            <span class="detail-value">${studentData.studentId}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">تاريخ الميلاد:</span>
-                            <span class="detail-value">${studentData.birthDate ? new Date(studentData.birthDate).toLocaleDateString('ar-EG') : 'غير محدد'}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">ولي الأمر:</span>
-                            <span class="detail-value">${studentData.parentName || 'غير محدد'}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">هاتف ولي الأمر:</span>
-                            <span class="detail-value">${studentData.parentPhone || 'غير محدد'}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">السنة الدراسية:</span>
-                            <span class="detail-value">${getAcademicYearName(studentData.academicYear) || 'غير محدد'}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">تاريخ التسجيل:</span>
-                            <span class="detail-value">${new Date(studentData.registrationDate || new Date()).toLocaleDateString('ar-EG')}</span>
-                        </div>
-                    </div>
-                    
-                    <div class="amount-section">
-                        <h3>المبلغ المدفوع</h3>
-                        <div class="amount">${amount} دينار جزائري</div>
-                        <p>(${convertNumberToArabicWords(amount)} ديناراً فقط لا غير)</p>
-                    </div>
-                    
-                    <div class="barcode">
-                        <svg id="barcode"></svg>
-                    </div>
-                    
-                    <div class="signature">
-                        <div class="signature-line">توقيع المسؤول</div>
-                        <div class="signature-line">توقيع ولي الأمر</div>
-                    </div>
-                    
-                    <div class="footer">
-                        <p>شكراً لثقتكم بنا - نتمنى لطالبنا النجاح والتوفيق</p>
-                        <p>للاستفسار: 1234567890 - info@school.com</p>
-                    </div>
-                </div>
-                
-                <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
-                <script>
-                    JsBarcode("#barcode", "${studentData.studentId}", {
-                        format: "CODE128",
-                        lineColor: "#2c3e50",
-                        width: 1.5,
-                        height: 50,
-                        displayValue: true,
-                        fontSize: 12,
-                        margin: 5
-                    });
-                    
-                    window.onload = function() {
-                        setTimeout(function() {
-                            window.print();
-                            setTimeout(function() {
-                                window.close();
-                            }, 500);
-                        }, 500);
-                    };
-                </script>
-            </body>
-            </html>
-        `);
-        doc.close();
-        
-        iframe.contentWindow.onafterprint = function() {
-            document.body.removeChild(iframe);
-            resolve();
-        };
+        // Refresh accounts list
+        loadStudentAccounts();
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || 'حدث خطأ أثناء إنشاء الحساب');
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      Swal.fire('خطأ', err.message, 'error');
+    }
+  }
+  
+  // Load students for dropdown
+  async function loadStudentsForAccountCreation() {
+    try {
+      const response = await fetch('/api/students?hasAccount=false', {
+        headers: getAuthHeaders()
+      });
+      
+      if (response.status === 401) {
+        logout();
+        return;
+      }
+      
+      const students = await response.json();
+      const select = document.getElementById('accountStudentSelect');
+      select.innerHTML = '<option value="" selected disabled>اختر طالب...</option>';
+      
+      students.forEach(student => {
+        const option = document.createElement('option');
+        option.value = student._id;
+        option.textContent = `${student.name} (${student.studentId || 'لا يوجد رقم'})`;
+        select.appendChild(option);
+      });
+    } catch (err) {
+      console.error('Error loading students:', err);
+      Swal.fire('خطأ', 'حدث خطأ أثناء تحميل قائمة الطلاب', 'error');
+    }
+  }
+  
+  // Initialize when modal is shown
+  document.getElementById('addStudentAccountModal').addEventListener('show.bs.modal', function() {
+    loadStudentsForAccountCreation();
+    
+    // Generate suggested username
+    document.getElementById('accountStudentSelect').addEventListener('change', function() {
+      const selectedOption = this.options[this.selectedIndex];
+      if (selectedOption.value) {
+        const studentId = selectedOption.textContent.match(/\(([^)]+)\)/)?.[1] || '';
+        document.getElementById('accountUsername').value = studentId || '';
+      }
     });
+  });
+  
+  // Set up form submission
+  document.getElementById('addStudentAccountForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    createStudentAccount();
+  });
+  
+  // Initialize when section is shown
+  document.getElementById('student-accounts-link').addEventListener('click', function() {
+    loadStudentAccounts();
+  });
+// Add event listener for save button
+document.getElementById('saveStudentAccountBtn').addEventListener('click', async () => {
+    const password = document.getElementById('accountPassword').value;
+    const confirmPassword = document.getElementById('accountConfirmPassword').value;
+    
+    if (password !== confirmPassword) {
+        Swal.fire('خطأ', 'كلمة المرور وتأكيدها غير متطابقين', 'error');
+        return;
+    }
+    
+    const accountData = {
+        studentId: document.getElementById('accountStudentSelect').value,
+        username: document.getElementById('accountUsername').value,
+        password: password,
+        email: document.getElementById('accountEmail').value
+    };
+    
+    try {
+        const response = await fetch('/api/student-accounts', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(accountData)
+        });
+        
+        if (response.ok) {
+            Swal.fire('نجاح', 'تم إنشاء حساب الطالب بنجاح', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('addStudentAccountModal')).hide();
+            loadStudentAccounts();
+        } else {
+            const error = await response.json();
+            Swal.fire('خطأ', error.error || 'حدث خطأ أثناء إنشاء الحساب', 'error');
+        }
+    } catch (err) {
+        console.error('Error:', err);
+        Swal.fire('خطأ', 'حدث خطأ أثناء الاتصال بالخادم', 'error');
+    }
+});
+
+// Load students for account creation dropdown
+
+
+// Initialize when student accounts section is shown
+document.getElementById('student-accounts-link').addEventListener('click', function() {
+    loadStudentAccounts();
+    loadStudentsForAccountCreation();
+});
+
+// Update the student account creation function
+window.createStudentAccount = async function(studentId) {
+    try {
+        // First get student data
+        const studentResponse = await fetch(`/api/students/${studentId}`, {
+            headers: getAuthHeaders()
+        });
+        
+        if (studentResponse.status === 401) {
+            logout();
+            return;
+        }
+        
+        const student = await studentResponse.json();
+        
+        // Generate a username and password
+        const username = student.studentId || `stu_${Date.now().toString().slice(-6)}`;
+        const password = generateRandomPassword(); // You'll need to implement this function
+        
+        const accountData = {
+            username: username,
+            password: password,
+            role: 'student',
+            fullName: student.name,
+            phone: student.parentPhone,
+            email: student.parentEmail,
+            studentId: student.studentId
+        };
+        
+        const response = await fetch('/api/student/create-account', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(accountData)
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            
+            // Show success message with credentials
+            Swal.fire({
+                title: 'تم إنشاء الحساب بنجاح',
+                html: `
+                    <p>تم إنشاء حساب الطالب بنجاح</p>
+                    <div class="alert alert-info mt-3">
+                        <p><strong>اسم المستخدم:</strong> ${result.username}</p>
+                        <p><strong>كلمة المرور:</strong> ${password}</p>
+                    </div>
+                    <p class="text-muted mt-2">يرجى تدوين هذه المعلومات وإعطائها للطالب</p>
+                `,
+                confirmButtonText: 'تم',
+                width: '600px'
+            });
+            
+            // Refresh student accounts list
+            loadStudentAccounts();
+        } else {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to create account');
+        }
+    } catch (err) {
+        console.error('Error creating student account:', err);
+        Swal.fire({
+            icon: 'error',
+            title: 'خطأ',
+            text: err.message || 'حدث خطأ أثناء إنشاء الحساب',
+            confirmButtonText: 'حسناً'
+        });
+    }
+};
+
+// Helper function to generate random password
+function generateRandomPassword(length = 8) {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let password = '';
+    for (let i = 0; i < length; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
 }
+// Student Accounts Functions
+// Load student accounts
+// Load student accounts
+// Load student accounts
+// Load student accounts
+// Load student accounts
+// Load student accounts
+async function loadStudentAccounts() {
+    try {
+      const response = await fetch('/api/student-accounts', {
+        headers: getAuthHeaders()
+      });
+      
+      if (response.status === 401) {
+        logout();
+        return;
+      }
+      
+      const accounts = await response.json();
+      
+      const tableBody = document.getElementById('studentAccountsTable');
+      tableBody.innerHTML = '';
+      
+      accounts.forEach((account, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${index + 1}</td>
+          <td>${account.username}</td>
+          <td>${account.fullName || '-'}</td>
+          <td>${account.student?.studentId || '-'}</td>
+          <td>${account.email || '-'}</td>
+          <td>
+            <span class="badge ${account.active ? 'bg-success' : 'bg-secondary'}">
+              ${account.active ? 'نشط' : 'غير نشط'}
+            </span>
+          </td>
+          <td>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteStudentAccount('${account._id}')">
+              <i class="bi bi-trash"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-warning" onclick="resetStudentPassword('${account._id}')">
+              <i class="bi bi-key"></i>
+            </button>
+          </td>
+        `;
+        tableBody.appendChild(row);
+      });
+    } catch (err) {
+      console.error('Error loading student accounts:', err);
+      Swal.fire('خطأ', 'حدث خطأ أثناء تحميل حسابات الطلاب', 'error');
+    }
+  }
+  
+  // Create student account
+  async function createStudentAccount() {
+    const studentId = document.getElementById('accountStudentSelect').value;
+    const username = document.getElementById('accountUsername').value.trim();
+    const password = document.getElementById('accountPassword').value;
+    const confirmPassword = document.getElementById('accountConfirmPassword').value;
+    const email = document.getElementById('accountEmail').value.trim();
+  
+    // Validation
+    if (!studentId) {
+      Swal.fire('خطأ', 'يجب اختيار طالب', 'error');
+      return;
+    }
+  
+    if (!username) {
+      Swal.fire('خطأ', 'يجب إدخال اسم المستخدم', 'error');
+      return;
+    }
+  
+    if (password !== confirmPassword) {
+      Swal.fire('خطأ', 'كلمة المرور وتأكيدها غير متطابقين', 'error');
+      return;
+    }
+  
+    try {
+      Swal.fire({
+        title: 'جاري إنشاء الحساب',
+        html: 'الرجاء الانتظار...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.showLoading()
+      });
+  
+      const response = await fetch('/api/student-accounts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders()
+        },
+        body: JSON.stringify({
+          username,
+          password,
+          studentId,
+          email
+        })
+      });
+  
+      if (response.ok) {
+        const result = await response.json();
+        Swal.fire({
+          title: 'نجاح',
+          html: `تم إنشاء حساب الطالب بنجاح<br>اسم المستخدم: ${result.username}`,
+          icon: 'success'
+        });
+        
+        // Reset form and hide modal
+        document.getElementById('addStudentAccountForm').reset();
+        bootstrap.Modal.getInstance(document.getElementById('addStudentAccountModal')).hide();
+        
+        // Refresh accounts list
+        loadStudentAccounts();
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || 'حدث خطأ أثناء إنشاء الحساب');
+      }
+    } catch (err) {
+      console.error('Error:', err);
+      Swal.fire('خطأ', err.message, 'error');
+    }
+  }
+  
+  // Load students for dropdown
+  async function loadStudentsForAccountCreation() {
+    try {
+      const response = await fetch('/api/students?hasAccount=false', {
+        headers: getAuthHeaders()
+      });
+      
+      if (response.status === 401) {
+        logout();
+        return;
+      }
+      
+      const students = await response.json();
+      const select = document.getElementById('accountStudentSelect');
+      select.innerHTML = '<option value="" selected disabled>اختر طالب...</option>';
+      
+      students.forEach(student => {
+        const option = document.createElement('option');
+        option.value = student._id;
+        option.textContent = `${student.name} (${student.studentId || 'لا يوجد رقم'})`;
+        select.appendChild(option);
+      });
+    } catch (err) {
+      console.error('Error loading students:', err);
+      Swal.fire('خطأ', 'حدث خطأ أثناء تحميل قائمة الطلاب', 'error');
+    }
+  }
+  
+  // Initialize when modal is shown
+  document.getElementById('addStudentAccountModal').addEventListener('show.bs.modal', function() {
+    loadStudentsForAccountCreation();
+    
+    // Generate suggested username
+    document.getElementById('accountStudentSelect').addEventListener('change', function() {
+      const selectedOption = this.options[this.selectedIndex];
+      if (selectedOption.value) {
+        const studentId = selectedOption.textContent.match(/\(([^)]+)\)/)?.[1] || '';
+        document.getElementById('accountUsername').value = studentId || '';
+      }
+    });
+  });
+  
+  // Set up form submission
+  document.getElementById('addStudentAccountForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    createStudentAccount();
+  });
+  
+  // Initialize when section is shown
+  document.getElementById('student-accounts-link').addEventListener('click', function() {
+    loadStudentAccounts();
+  });
+
+// Add event listener for save button
+document.getElementById('saveStudentAccountBtn').addEventListener('click', async () => {
+    const password = document.getElementById('accountPassword').value;
+    const confirmPassword = document.getElementById('accountConfirmPassword').value;
+    
+    if (password !== confirmPassword) {
+        Swal.fire('خطأ', 'كلمة المرور وتأكيدها غير متطابقين', 'error');
+        return;
+    }
+    
+    const accountData = {
+        studentId: document.getElementById('accountStudentSelect').value,
+        username: document.getElementById('accountUsername').value,
+        password: password,
+        email: document.getElementById('accountEmail').value
+    };
+    
+    try {
+        const response = await fetch('/api/student-accounts', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(accountData)
+        });
+        
+        if (response.ok) {
+            Swal.fire('نجاح', 'تم إنشاء حساب الطالب بنجاح', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('addStudentAccountModal')).hide();
+            loadStudentAccounts();
+        } else {
+            const error = await response.json();
+            Swal.fire('خطأ', error.error || 'حدث خطأ أثناء إنشاء الحساب', 'error');
+        }
+    } catch (err) {
+        console.error('Error:', err);
+        Swal.fire('خطأ', 'حدث خطأ أثناء الاتصال بالخادم', 'error');
+    }
+});
+
+// Load students for account creation dropdown
+async function loadStudentsForAccountCreation() {
+    try {
+        const response = await fetch('/api/students', {
+            headers: getAuthHeaders()
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch students');
+        
+        const students = await response.json();
+        const select = document.getElementById('accountStudentSelect');
+        select.innerHTML = '<option value="" selected disabled>اختر طالب...</option>';
+        
+        students.forEach(student => {
+            const option = document.createElement('option');
+            option.value = student._id;
+            option.textContent = `${student.name} (${student.studentId || 'لا يوجد رقم'})`;
+            select.appendChild(option);
+        });
+    } catch (err) {
+        console.error('Error loading students:', err);
+        Swal.fire('خطأ', 'حدث خطأ أثناء تحميل قائمة الطلاب', 'error');
+    }
+}
+// Initialize when student accounts section is shown
+document.getElementById('student-accounts-link').addEventListener('click', function() {
+    loadStudentAccounts();
+    // loadStudentsForAccountCreation();
+});
+document.getElementById('addStudentAccountModal').addEventListener('show.bs.modal', function() {
+    loadStudentsForAccountCreation();
+
+    // Remove any existing listeners to prevent duplicates
+    document.getElementById('saveStudentAccountBtn').replaceWith(
+      document.getElementById('saveStudentAccountBtn').cloneNode(true)
+    );
+    
+    // Add new listener
+    document.getElementById('saveStudentAccountBtn').addEventListener('click', createStudentAccount);
+    
+    // Load students
+    loadStudentsForAccountCreation();
+  });
+document.getElementById('student-accounts-link').addEventListener('click', function() {
+    loadStudentAccounts();
+});
+// Add event listener for save button
+document.getElementById('saveStudentAccountBtn').addEventListener('click', async () => {
+    const password = document.getElementById('accountPassword').value;
+    const confirmPassword = document.getElementById('accountConfirmPassword').value;
+    
+    if (password !== confirmPassword) {
+        Swal.fire('خطأ', 'كلمة المرور وتأكيدها غير متطابقين', 'error');
+        return;
+    }
+    
+    const accountData = {
+        studentId: document.getElementById('accountStudentSelect').value,
+        username: document.getElementById('accountUsername').value,
+        password: password,
+        email: document.getElementById('accountEmail').value
+    };
+    
+    try {
+        const response = await fetch('/api/student-accounts', {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(accountData)
+        });
+        
+        if (response.ok) {
+            Swal.fire('نجاح', 'تم إنشاء حساب الطالب بنجاح', 'success');
+            bootstrap.Modal.getInstance(document.getElementById('addStudentAccountModal')).hide();
+            loadStudentAccounts();
+        } else {
+            const error = await response.json();
+            Swal.fire('خطأ', error.error || 'حدث خطأ أثناء إنشاء الحساب', 'error');
+        }
+    } catch (err) {
+        console.error('Error:', err);
+        Swal.fire('خطأ', 'حدث خطأ أثناء الاتصال بالخادم', 'error');
+    }
+});
+
+// Load students for account creation dropdown
+
+// Initialize when student accounts section is shown
+document.getElementById('student-accounts-link').addEventListener('click', function() {
+    // Load student accounts table
+    loadStudentAccounts();
+    
+    // Load students for the account creation dropdown
+    loadStudentsForAccountCreation();
+    
+    // Reset the form when modal is shown
+    document.getElementById('addStudentAccountForm').reset();
+});
+
+window.showCreateAccountModal = function(studentId) {
+    // First get the student data
+    fetch(`/api/students/${studentId}`, {
+        headers: getAuthHeaders()
+    })
+    .then(response => response.json())
+    .then(student => {
+        // Set the form values
+        document.getElementById('accountStudentSelect').value = student._id;
+        document.getElementById('accountUsername').value = student.studentId || '';
+        document.getElementById('accountEmail').value = student.parentEmail || '';
+        
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('addStudentAccountModal'));
+        modal.show();
+    })
+    .catch(err => {
+        console.error('Error:', err);
+        Swal.fire('خطأ', 'حدث خطأ أثناء جلب بيانات الطالب', 'error');
+    });
+};
+
+
+
+
+
+
+
+
+
+// Add this in your initialization code
+// Add this to your initialization code
+document.addEventListener('DOMContentLoaded', function() {
+    // Set up the form submission
+    const accountForm = document.getElementById('addStudentAccountForm');
+    if (accountForm) {
+        accountForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            createStudentAccount();
+        });
+    }
+});
+
+async function createStudentAccount() {
+    const form = document.getElementById('addStudentAccountForm');
+    const formData = new FormData(form);
+    
+    const accountData = {
+        student: formData.get('accountStudentSelect'),
+        username: formData.get('accountUsername'),
+        password: formData.get('accountPassword'),
+        email: formData.get('accountEmail')
+    };
+
+    // Validation
+    if (!accountData.student) {
+        Swal.fire('خطأ', 'يجب اختيار طالب', 'error');
+        return;
+    }
+
+    if (!accountData.username) {
+        Swal.fire('خطأ', 'يجب إدخال اسم المستخدم', 'error');
+        return;
+    }
+
+    if (formData.get('accountPassword') !== formData.get('accountConfirmPassword')) {
+        Swal.fire('خطأ', 'كلمة المرور وتأكيدها غير متطابقين', 'error');
+        return;
+    }
+
+    try {
+        Swal.fire({
+            title: 'جاري إنشاء الحساب',
+            html: 'الرجاء الانتظار...',
+            allowOutsideClick: false,
+            didOpen: () => Swal.showLoading()
+        });
+
+        const response = await fetch('/api/student/create-account', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...getAuthHeaders()
+            },
+            body: JSON.stringify(accountData)
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            Swal.fire({
+                title: 'نجاح',
+                html: `تم إنشاء حساب الطالب بنجاح<br>اسم المستخدم: ${result.username}`,
+                icon: 'success'
+            });
+            form.reset();
+            bootstrap.Modal.getInstance(document.getElementById('addStudentAccountModal')).hide();
+            loadStudentAccounts();
+        } else {
+            const error = await response.json();
+            throw new Error(error.error || 'حدث خطأ أثناء إنشاء الحساب');
+        }
+    } catch (err) {
+        console.error('Error:', err);
+        Swal.fire('خطأ', err.message, 'error');
+    }
+}
+
+function saveStudentAccount() {
+    const studentId = document.getElementById('accountStudentSelect').value;
+    const username = document.getElementById('accountUsername').value.trim();
+    const password = document.getElementById('accountPassword').value;
+    const confirmPassword = document.getElementById('accountConfirmPassword').value;
+    const email = document.getElementById('accountEmail').value.trim();
+
+    console.log(studentId, username, password, confirmPassword, email);
+    
+  
+    // Validation
+    if (!studentId) {
+      Swal.fire('خطأ', 'يجب اختيار طالب', 'error');
+      return;
+    }
+  
+    if (!username) {
+      Swal.fire('خطأ', 'يجب إدخال اسم المستخدم', 'error');
+      return;
+    }
+  
+    // Add more validation as needed
+  
+    // Prepare data
+    const accountData = {
+      studentId: studentId,
+      username: username,
+      password: password,
+      email: email
+    };
+  
+    // Send request
+// In saveStudentAccount() function
+fetch('/api/student-accounts', {
+    method: 'POST',  // Changed from PUT to POST
+    headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+    },
+    body: JSON.stringify(accountData)
+})
+      .then(response => {
+        if (response.ok) {
+          Swal.fire('نجاح', 'تم حفظ الحساب بنجاح', 'success');
+        } else {
+          response.json().then(error => {
+            throw new Error(error.message || 'حدث خطأ أثناء حفظ الحساب');
+          });
+        }
+      })
+      .catch(err => {
+        console.error('Error saving account:', err);
+        Swal.fire('خطأ', err.message || 'حدث خطأ أثناء حفظ الحساب', 'error');
+      });
+  }
