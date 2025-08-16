@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تتبع حالة الطلب</title>
+    <link rel="stylesheet" href="css/auth.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>نظام إدارة المدرسة</h1>
+            <p>تتبع حالة طلب التسجيل</p>
+        </header>
+        
+        <main>
+            <form id="statusForm" class="auth-form">
+                <div class="form-group">
+                    <label for="studentId">رقم الطالب</label>
+                    <input type="text" id="studentId" name="studentId" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="parentPhone">هاتف ولي الأمر</label>
+                    <input type="tel" id="parentPhone" name="parentPhone" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">تحقق من الحالة</button>
+                
+                <div class="form-links">
+                    <a href="student-register.html">تسجيل طالب جديد</a>
+                    <a href="student-login.html">تسجيل الدخول</a>
+                </div>
+            </form>
+            
+            <div id="statusResult" class="hidden">
+                <h2>حالة طلب التسجيل</h2>
+                <div id="statusInfo">
+                    <p><strong>اسم الطالب:</strong> <span id="statusName"></span></p>
+                    <p><strong>رقم الطالب:</strong> <span id="statusStudentId"></span></p>
+                    <p><strong>الحالة:</strong> <span id="statusValue"></span></p>
+                    <p><strong>تاريخ التسجيل:</strong> <span id="statusDate"></span></p>
+                    <p id="statusReason" class="hidden"><strong>سبب الرفض:</strong> <span id="reasonText"></span></p>
+                </div>
+                
+                <div id="statusActions" class="hidden">
+                    <a href="student-login.html" class="btn btn-primary" id="loginLink">تسجيل الدخول</a>
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <p>جميع الحقوق محفوظة &copy; 2023 المدرسة</p>
+        </footer>
+    </div>
+    
+    <script src="js/auth.js"></script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>RFID Reader</title>
+</head>
+<body>
+  <h2>Scan an RFID Card</h2>
+  <div id="rfid-output">Waiting for RFID...</div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    socket.on('rfid-data', function(data) {
+      document.getElementById('rfid-output').textContent = 'UID: ' + data;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم الطالب</title>
+    <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>لوحة الطالب</h2>
+                <div class="student-info">
+                    <img src="images/avatar.png" alt="صورة الطالب" class="student-avatar">
+                    <h3 id="sidebarStudentName">...</h3>
+                    <p id="sidebarStudentId">...</p>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <ul>
+                    <li class="active"><a href="#dashboard"><i class="fas fa-home"></i> الرئيسية</a></li>
+                    <li><a href="#classes"><i class="fas fa-book"></i> الحصص الدراسية</a></li>
+                    <li><a href="#schedule"><i class="fas fa-calendar-alt"></i> الجدول الدراسي</a></li>
+                    <li><a href="#payments"><i class="fas fa-money-bill-wave"></i> الدفعات المالية</a></li>
+                    <li><a href="#attendance"><i class="fas fa-clipboard-check"></i> الحضور والغياب</a></li>
+                    <li><a href="#profile"><i class="fas fa-user"></i> الملف الشخصي</a></li>
+                    <li><a href="#logout"><i class="fas fa-sign-out-alt"></i> تسجيل الخروج</a></li>
+                </ul>
+            </nav>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="main-header">
+                <h1 id="pageTitle">الرئيسية</h1>
+                <div class="header-actions">
+                    <button id="notificationsBtn" class="btn-icon">
+                        <i class="fas fa-bell"></i>
+                        <span class="badge" id="notificationCount">0</span>
+                    </button>
+                    <div class="user-dropdown">
+                        <button id="userMenuBtn">
+                            <img src="images/avatar.png" alt="صورة الطالب" class="user-avatar">
+                            <span id="headerStudentName">...</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="dropdown-menu hidden">
+                            <a href="#profile"><i class="fas fa-user"></i> الملف الشخصي</a>
+                            <a href="#settings"><i class="fas fa-cog"></i> الإعدادات</a>
+                            <a href="#logout"><i class="fas fa-sign-out-alt"></i> تسجيل الخروج</a>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Dashboard Sections -->
+            <section id="dashboardSection" class="content-section">
+                <div class="welcome-card">
+                    <h2>مرحباً <span id="welcomeStudentName">...</span></h2>
+                    <p>هذه لوحة التحكم الخاصة بك حيث يمكنك متابعة دراستك ودفعاتك وحضورك.</p>
+                </div>
+                
+                <div class="stats-cards">
+                    <div class="stat-card">
+                        <div class="stat-icon bg-primary">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="classesCount">0</h3>
+                            <p>عدد الحصص المسجلة</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon bg-success">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="attendanceRate">0%</h3>
+                            <p>نسبة الحضور</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon bg-warning">
+                            <i class="fas fa-money-bill-wave"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="pendingPayments">0</h3>
+                            <p>دفعات معلقة</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-row">
+                    <div class="upcoming-classes">
+                        <h3><i class="fas fa-calendar-day"></i> الحصص القادمة</h3>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>اليوم</th>
+                                        <th>الحصة</th>
+                                        <th>المادة</th>
+                                        <th>الوقت</th>
+                                        <th>القاعة</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="upcomingClassesList">
+                                    <!-- Filled by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <div class="recent-payments">
+                        <h3><i class="fas fa-history"></i> آخر الدفعات</h3>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>الشهر</th>
+                                        <th>الحصة</th>
+                                        <th>المبلغ</th>
+                                        <th>الحالة</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recentPaymentsList">
+                                    <!-- Filled by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Classes Section (hidden by default) -->
+            <section id="classesSection" class="content-section hidden">
+                <div class="section-header">
+                    <h2>الحصص الدراسية</h2>
+                    <button class="btn btn-primary" id="printScheduleBtn">
+                        <i class="fas fa-print"></i> طباعة الجدول
+                    </button>
+                </div>
+                
+                <div class="classes-grid" id="classesGrid">
+                    <!-- Filled by JavaScript -->
+                </div>
+            </section>
+            
+            <!-- Schedule Section (hidden by default) -->
+            <section id="scheduleSection" class="content-section hidden">
+                <div class="section-header">
+                    <h2>جدول الحصص الأسبوعي</h2>
+                    <div class="schedule-actions">
+                        <button class="btn btn-secondary" id="prevWeekBtn">
+                            <i class="fas fa-chevron-right"></i> الأسبوع السابق
+                        </button>
+                        <span id="currentWeekDisplay">الأسبوع الحالي</span>
+                        <button class="btn btn-secondary" id="nextWeekBtn">
+                            الأسبوع القادم <i class="fas fa-chevron-left"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="weekly-schedule">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>اليوم</th>
+                                <th>الحصة</th>
+                                <th>المادة</th>
+                                <th>الأستاذ</th>
+                                <th>الوقت</th>
+                                <th>القاعة</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scheduleTableBody">
+                            <!-- Filled by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            
+            <!-- Payments Section (hidden by default) -->
+            <section id="paymentsSection" class="content-section hidden">
+                <div class="section-header">
+                    <h2>سجل الدفعات المالية</h2>
+                    <button class="btn btn-primary" id="printPaymentsBtn">
+                        <i class="fas fa-print"></i> طباعة السجل
+                    </button>
+                </div>
+                
+                <div class="payments-filter">
+                    <select id="paymentStatusFilter" class="form-control">
+                        <option value="all">جميع الحالات</option>
+                        <option value="paid">مدفوعة</option>
+                        <option value="pending">معلقة</option>
+                        <option value="late">متأخرة</option>
+                    </select>
+                    
+                    <select id="paymentYearFilter" class="form-control">
+                        <option value="all">كل السنوات</option>
+                        <!-- Filled by JavaScript -->
+                    </select>
+                </div>
+                
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>الشهر</th>
+                                <th>الحصة</th>
+                                <th>المبلغ</th>
+                                <th>تاريخ الدفع</th>
+                                <th>طريقة الدفع</th>
+                                <th>الحالة</th>
+                                <th>رقم الفاتورة</th>
+                            </tr>
+                        </thead>
+                        <tbody id="paymentsTableBody">
+                            <!-- Filled by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            
+            <!-- Attendance Section (hidden by default) -->
+            <section id="attendanceSection" class="content-section hidden">
+                <div class="section-header">
+                    <h2>سجل الحضور والغياب</h2>
+                    <button class="btn btn-primary" id="printAttendanceBtn">
+                        <i class="fas fa-print"></i> طباعة السجل
+                    </button>
+                </div>
+                
+                <div class="attendance-filter">
+                    <select id="attendanceClassFilter" class="form-control">
+                        <option value="all">جميع الحصص</option>
+                        <!-- Filled by JavaScript -->
+                    </select>
+                    
+                    <select id="attendanceMonthFilter" class="form-control">
+                        <option value="all">كل الأشهر</option>
+                        <!-- Filled by JavaScript -->
+                    </select>
+                </div>
+                
+                <div class="attendance-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">إجمالي الحصص:</span>
+                        <span class="stat-value" id="totalClasses">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">حضور:</span>
+                        <span class="stat-value" id="presentClasses">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">غياب:</span>
+                        <span class="stat-value" id="absentClasses">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">تأخير:</span>
+                        <span class="stat-value" id="lateClasses">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">النسبة:</span>
+                        <span class="stat-value" id="attendancePercentage">0%</span>
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>التاريخ</th>
+                                <th>الحصة</th>
+                                <th>المادة</th>
+                                <th>الحالة</th>
+                                <th>ملاحظات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendanceTableBody">
+                            <!-- Filled by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            
+            <!-- Profile Section (hidden by default) -->
+            <section id="profileSection" class="content-section hidden">
+                <div class="section-header">
+                    <h2>الملف الشخصي</h2>
+                </div>
+                
+                <div class="profile-content">
+                    <div class="profile-info">
+                        <div class="profile-avatar">
+                            <img src="images/avatar.png" alt="صورة الطالب" id="profileAvatar">
+                            <button class="btn btn-secondary" id="changeAvatarBtn">تغيير الصورة</button>
+                        </div>
+                        
+                        <div class="profile-details">
+                            <h3 id="profileName">...</h3>
+                            <p><strong>رقم الطالب:</strong> <span id="profileStudentId">...</span></p>
+                            <p><strong>السنة الدراسية:</strong> <span id="profileAcademicYear">...</span></p>
+                            <p><strong>تاريخ التسجيل:</strong> <span id="profileRegistrationDate">...</span></p>
+                        </div>
+                    </div>
+                    
+                    <div class="profile-parent">
+                        <h4>معلومات ولي الأمر</h4>
+                        <p><strong>اسم ولي الأمر:</strong> <span id="profileParentName">...</span></p>
+                        <p><strong>هاتف ولي الأمر:</strong> <span id="profileParentPhone">...</span></p>
+                        <p><strong>بريد ولي الأمر:</strong> <span id="profileParentEmail">...</span></p>
+                    </div>
+                    
+                    <div class="profile-actions">
+                        <button class="btn btn-primary" id="editProfileBtn">تعديل الملف الشخصي</button>
+                        <button class="btn btn-warning" id="changePasswordBtn">تغيير كلمة المرور</button>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Change Password Modal -->
+            <div id="changePasswordModal" class="modal hidden">
+                <div class="modal-content">
+                    <span class="close-modal">&times;</span>
+                    <h2>تغيير كلمة المرور</h2>
+                    <form id="changePasswordForm">
+                        <div class="form-group">
+                            <label for="currentPassword">كلمة المرور الحالية</label>
+                            <input type="password" id="currentPassword" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="newPassword">كلمة المرور الجديدة</label>
+                            <input type="password" id="newPassword" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="confirmPassword">تأكيد كلمة المرور الجديدة</label>
+                            <input type="password" id="confirmPassword" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">حفظ التغييرات</button>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="js/dashboard.js"></script>
+    <script src="js/utils.js"></script>
+</body>
+</html>
