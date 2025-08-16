@@ -1479,9 +1479,9 @@
   // Student Registration Endpoint
   app.post('/api/student/register', async (req, res) => {
     try {
-      console.log('Received registration data:', req.body); // Debug log
-
-      // تحقق من الحقول المطلوبة
+      console.log('Received registration data:', req.body);
+  
+      // Validate required fields
       const requiredFields = ['name', 'academicYear', 'parentName', 'parentPhone'];
       for (const field of requiredFields) {
         if (!req.body[field]) {
@@ -1490,8 +1490,8 @@
           });
         }
       }
-
-      // أنشئ سجل الطالب
+  
+      // Create student record
       const student = new Student({
         name: req.body.name,
         academicYear: req.body.academicYear,
@@ -1506,21 +1506,17 @@
         active: false,
         registrationDate: new Date()
       });
-
-      // احفظ في قاعدة البيانات
+  
       await student.save();
-
-      console.log('Student registered successfully:', student); // Debug log
-
+  
+      console.log('Student registered successfully:', student);
+  
       res.status(201).json({
         message: 'تم استلام طلب التسجيل بنجاح',
         studentId: student._id
       });
-
     } catch (err) {
       console.error('Registration error:', err);
-      
-      // أرسل رسالة خطأ أكثر تفصيلاً
       res.status(500).json({ 
         error: 'حدث خطأ أثناء تسجيل الطلب',
         details: err.message,
@@ -1530,7 +1526,7 @@
   });
 
   // Get Registration Requests (Admin only)
-  app.get('/api/registration-requests', async (req, res) => {
+  app.get('/api/registration-requests', authenticate(['admin']), async (req, res) => {
     try {
       const { status } = req.query;
       const query = { status: status || 'pending' };
@@ -1544,70 +1540,63 @@
     }
   });
 
-
   // Approve Student
   app.put('/api/admin/approve-student/:id', authenticate(['admin']), async (req, res) => {
-      try {
-          // Generate official student ID
-          const year = new Date().getFullYear().toString().slice(-2);
-          const randomNum = Math.floor(1000 + Math.random() * 9000);
-          const studentId = `STU-${year}-${randomNum}`;
-
-          const student = await Student.findByIdAndUpdate(
-              req.params.id,
-              {
-                  status: 'active',
-                  active: true,
-                  studentId,
-                  $unset: { 'registrationData.tempId': 1 }
-              },
-              { new: true }
-          );
-
-          // Send approval notification
-          // const smsContent = `تم قبول طلب تسجيل الطالب ${student.name}. الرقم الجامعي: ${studentId}. يمكن الآن تسجيل الدخول باستخدام هذا الرقم.`;
-          // await smsGateway.send(student.parentPhone, smsContent);
+    try {
+      // Generate official student ID
+      const year = new Date().getFullYear().toString().slice(-2);
+      const randomNum = Math.floor(1000 + Math.random() * 9000);
+      const studentId = `STU-${year}-${randomNum}`;
+  
+      const student = await Student.findByIdAndUpdate(
+        req.params.id,
+        {
+          status: 'active',
+          active: true,
+          studentId,
+          $unset: { 'registrationData.tempId': 1 }
+        },
+        { new: true }
+      );
+  
+      // Send approval notification
       io.to(`student-${student.studentId}`).emit('registration-update', {
         studentId: student.studentId,
         status: 'active',
         name: student.name,
         registrationDate: student.registrationDate
       });
-
-
-          res.json({
-              message: 'تم تفعيل حساب الطالب بنجاح',
-              studentId: student.studentId
-          });
-      } catch (err) {
-          res.status(500).json({ error: err.message });
-      }
+  
+      res.json({
+        message: 'تم تفعيل حساب الطالب بنجاح',
+        studentId: student.studentId
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   });
-
   // Reject Student
-  app.put('/api/admin/reject-student/:id', async (req, res) => {
-      try {
-          const { reason } = req.body;
-          const student = await Student.findByIdAndUpdate(
-              req.params.id,
-              { status: 'inactive', active: false },
-              { new: true }
-          );
-
-          // Send rejection notification
-          // const smsContent = `نأسف لإعلامكم أن طلب تسجيل الطالب ${student.name} قد تم رفضه. السبب: ${reason || 'غير محدد'}.`;
-          // await smsGateway.send(student.parentPhone, smsContent);
-          io.to(`student-${student.studentId}`).emit('registration-update', {
-            studentId: student.studentId,
-            status: 'inactive',
-            name: student.name,
-            registrationDate: student.registrationDate,
-            reason: req.body.reason
-          });
-          res.json({ message: 'تم رفض طلب التسجيل' });
-      } catch (err) {
-          res.status(500).json({ error: err.message });
-      }
+  app.put('/api/admin/reject-student/:id', authenticate(['admin']), async (req, res) => {
+    try {
+      const { reason } = req.body;
+      const student = await Student.findByIdAndUpdate(
+        req.params.id,
+        { status: 'inactive', active: false },
+        { new: true }
+      );
+  
+      io.to(`student-${student.studentId}`).emit('registration-update', {
+        studentId: student.studentId,
+        status: 'inactive',
+        name: student.name,
+        registrationDate: student.registrationDate,
+        reason: req.body.reason
+      });
+  
+      res.json({ message: 'تم رفض طلب التسجيل' });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // Add this endpoint
@@ -1663,7 +1652,7 @@
 
   // Get all student accounts with filtering
 // Get all student accounts with filtering
-app.get('/api/student-accounts', async (req, res) => {
+app.get('/api/student-accounts', authenticate(['admin']), async (req, res) => {
   try {
     const { status, search } = req.query;
     const query = { role: 'student' };
@@ -1686,23 +1675,22 @@ app.get('/api/student-accounts', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
   // Create student account
   app.post('/api/student-accounts', authenticate(['admin']), async (req, res) => {
     const { studentId, username, password, email } = req.body;
-
+  
     try {
       // Validate required fields
       if (!studentId || !username || !password) {
         return res.status(400).json({ error: 'يجب إدخال جميع الحقول المطلوبة' });
       }
-
+  
       // Check if student exists
       const student = await Student.findOne({ _id: studentId });
       if (!student) {
         return res.status(404).json({ error: 'الطالب غير موجود' });
       }
-
+  
       // Check if account already exists
       const existingAccount = await StudentAccount.findOne({ 
         $or: [{ username }, { studentId: student.studentId }] 
@@ -1713,10 +1701,10 @@ app.get('/api/student-accounts', async (req, res) => {
           error: 'اسم المستخدم أو حساب الطالب موجود بالفعل' 
         });
       }
-
+  
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
-
+  
       // Create account
       const newAccount = new StudentAccount({
         username,
@@ -1727,13 +1715,13 @@ app.get('/api/student-accounts', async (req, res) => {
         email: email || student.parentEmail,
         role: 'student'
       });
-
+  
       await newAccount.save();
-
+  
       // Update student record to mark as having account
       student.hasAccount = true;
       await student.save();
-
+  
       res.status(201).json({
         message: 'تم إنشاء حساب الطالب بنجاح',
         account: {
@@ -1747,7 +1735,6 @@ app.get('/api/student-accounts', async (req, res) => {
       res.status(500).json({ error: err.message });
     }
   });
-
   // Delete student account
   app.delete('/api/student-accounts/:id', authenticate(['admin']), async (req, res) => {
     try {
@@ -1756,13 +1743,13 @@ app.get('/api/student-accounts', async (req, res) => {
       if (!account) {
         return res.status(404).json({ error: 'الحساب غير موجود' });
       }
-
+  
       // Update student record to mark as no account
       await Student.updateOne(
         { studentId: account.studentId },
         { $set: { hasAccount: false } }
       );
-
+  
       res.json({ message: 'تم حذف الحساب بنجاح' });
     } catch (err) {
       res.status(500).json({ error: err.message });
@@ -1772,23 +1759,23 @@ app.get('/api/student-accounts', async (req, res) => {
   // Reset password
   app.put('/api/student-accounts/:id/reset-password', authenticate(['admin']), async (req, res) => {
     const { password } = req.body;
-
+  
     try {
       if (!password) {
         return res.status(400).json({ error: 'يجب إدخال كلمة مرور جديدة' });
       }
-
+  
       const hashedPassword = await bcrypt.hash(password, 10);
       const account = await StudentAccount.findByIdAndUpdate(
         req.params.id,
         { password: hashedPassword },
         { new: true }
       ).select('-password');
-
+  
       if (!account) {
         return res.status(404).json({ error: 'الحساب غير موجود' });
       }
-
+  
       res.json({ 
         message: 'تم تحديث كلمة المرور بنجاح',
         account
@@ -1806,10 +1793,10 @@ app.get('/api/student-accounts', async (req, res) => {
       if (!account) {
         return res.status(404).json({ error: 'الحساب غير موجود' });
       }
-
+  
       account.active = !account.active;
       await account.save();
-
+  
       res.json({ 
         message: `تم ${account.active ? 'تفعيل' : 'تعطيل'} الحساب بنجاح`,
         account
@@ -1823,31 +1810,30 @@ app.get('/api/student-accounts', async (req, res) => {
   app.post('/api/student/login', async (req, res) => {
     try {
       const { username, password } = req.body;
-      const user = await User.findOne({ username, role: 'student' });
-
-      if (!user || !(await bcrypt.compare(password, user.password))) {
+      const studentAccount = await StudentAccount.findOne({ username });
+  
+      if (!studentAccount || !(await bcrypt.compare(password, studentAccount.password))) {
         return res.status(401).json({ error: 'اسم المستخدم أو كلمة المرور غير صحيحة' });
       }
-
-      const student = await Student.findOne({ studentId: user.studentId });
-
-      if (!student) {
-        return res.status(404).json({ error: 'الطالب غير موجود' });
-      }
-
+  
       const token = jwt.sign(
-        { id: user._id, username: user.username, role: user.role, studentId: user.studentId },
+        { 
+          id: studentAccount._id, 
+          username: studentAccount.username, 
+          role: studentAccount.role,
+          studentId: studentAccount.studentId
+        },
         process.env.JWT_SECRET,
         { expiresIn: '8h' }
       );
-
+  
       res.json({ 
         token, 
         user: { 
-          username: user.username, 
-          role: user.role, 
-          fullName: user.fullName,
-          studentId: user.studentId
+          username: studentAccount.username,
+          role: studentAccount.role,
+          fullName: studentAccount.fullName,
+          studentId: studentAccount.studentId
         } 
       });
     } catch (err) {
@@ -1866,16 +1852,16 @@ app.get('/api/student-accounts', async (req, res) => {
             { path: 'schedule.classroom', model: 'Classroom' }
           ]
         });
-
+  
       if (!student) {
         return res.status(404).json({ error: 'الطالب غير موجود' });
       }
-
+  
       // Get upcoming classes (next 7 days)
       const today = new Date();
       const nextWeek = new Date();
       nextWeek.setDate(today.getDate() + 7);
-
+  
       const upcomingClasses = [];
       const days = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
       
@@ -1906,15 +1892,15 @@ app.get('/api/student-accounts', async (req, res) => {
           }
         });
       });
-
+  
       // Sort by date
       upcomingClasses.sort((a, b) => a.date - b.date);
-
+  
       // Get payment status
       const payments = await Payment.find({ 
         student: student._id 
       }).populate('class').sort({ month: -1 });
-
+  
       res.json({
         student: {
           name: student.name,
@@ -1936,15 +1922,15 @@ app.get('/api/student-accounts', async (req, res) => {
   app.post('/api/student/change-password', authenticate(['student']), async (req, res) => {
     try {
       const { currentPassword, newPassword } = req.body;
-      const user = await User.findById(req.user.id);
-
-      if (!(await bcrypt.compare(currentPassword, user.password))) {
+      const studentAccount = await StudentAccount.findById(req.user.id);
+  
+      if (!(await bcrypt.compare(currentPassword, studentAccount.password))) {
         return res.status(400).json({ error: 'كلمة المرور الحالية غير صحيحة' });
       }
-
-      user.password = await bcrypt.hash(newPassword, 10);
-      await user.save();
-
+  
+      studentAccount.password = await bcrypt.hash(newPassword, 10);
+      await studentAccount.save();
+  
       res.json({ message: 'تم تغيير كلمة المرور بنجاح' });
     } catch (err) {
       res.status(500).json({ error: err.message });
