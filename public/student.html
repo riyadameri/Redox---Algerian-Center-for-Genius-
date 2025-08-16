@@ -783,7 +783,7 @@
                     loginError.value = '';
                     
                     try {
-                        const response = await axios.post('http://localhost:4200/api/student/login', loginForm.value);
+                        const response = await axios.post('/api/student/login', loginForm.value);
                         token.value = response.data.token;
                         localStorage.setItem('studentToken', token.value);
                         
