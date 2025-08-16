@@ -7,125 +7,688 @@
     <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Custom styles for mobile app feel */
+        /* Improved CSS for Student Portal */
+        :root {
+            --primary-color: #3b82f6; /* Blue 500 */
+            --primary-dark: #2563eb;  /* Blue 600 */
+            --secondary-color: #10b981; /* Green 500 */
+            --accent-color: #ef4444;    /* Red 500 */
+            --dark-color: #1f2937;      /* Gray 800 */
+            --light-color: #f9fafb;     /* Gray 50 */
+            --card-bg: #ffffff;
+        }
+
+        /* General Body and Page Structure */
         body {
-            @apply bg-gray-100 font-sans text-right text-gray-800;
-            -webkit-tap-highlight-color: transparent;
-            -webkit-font-smoothing: antialiased;
+            font-family: 'Tajawal', sans-serif;
+            background-color: var(--light-color);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow-x: hidden;
         }
 
-        /* Phone Screen Wrapper */
-        .phone-wrapper {
-            @apply relative mx-auto h-[calc(100dvh)] max-h-[100dvh] w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-2xl transition-all duration-300 ease-in-out;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        }
-
-        /* Scrollable Content */
-        .scrollable-content {
-            @apply h-[calc(100%-8rem)] overflow-y-auto px-4 py-4;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        /* Custom Scrollbar for a sleek look */
-        .scrollable-content::-webkit-scrollbar {
-            width: 4px;
-        }
-
-        .scrollable-content::-webkit-scrollbar-track {
-            background: #f1f5f9;
-        }
-
-        .scrollable-content::-webkit-scrollbar-thumb {
-            background-color: #3b82f6;
-            border-radius: 2px;
-        }
-
-        /* Smooth transitions */
-        .page-transition {
-            transition: transform 0.3s ease, opacity 0.3s ease;
-        }
-
-        /* Form animations */
-        .form-group-animated {
-            animation: fadeInUp 0.4s ease-out forwards;
+        /* Application wrapper to mimic a full-screen app */
+        #app {
+            width: 100%;
+            max-width: 500px;
+            min-height: 100vh;
+            background-color: var(--light-color);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            position: relative;
         }
         
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(15px); }
-            to { opacity: 1; transform: translateY(0); }
+        .page-transition {
+            transition: opacity 0.5s ease-in-out;
         }
 
-        /* Bottom navigation active state */
-        .nav-item.active {
-            @apply text-blue-600;
+        /* Payment Status Cards with Flip Animation */
+        .payment-card {
+            perspective: 1000px;
+            height: 80px;
             position: relative;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
+        
+        .payment-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .payment-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.8s;
+            transform-style: preserve-3d;
+        }
+        
+        .payment-card:hover .payment-card-inner {
+            transform: rotateY(180deg);
+        }
+        
+        .payment-card-front, .payment-card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .payment-card-front {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        }
+        
+        .payment-card-back {
+            background: linear-gradient(135deg, #e2e8f0 0%, #f8fafc 100%);
+            transform: rotateY(180deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .payment-paid {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+        }
+        
+        .payment-pending {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+        }
+        
+        .payment-late {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+        
+        /* Enhanced Navigation Bar with Floating Effect */
+        #bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            border-radius: 24px 24px 0 0;
+            padding: 8px;
+            max-width: 500px;
+            margin: 0 auto;
+            transition: all 0.3s ease;
+            transform: translateY(0);
+        }
+        
+        #bottom-nav.hidden {
+            transform: translateY(100%);
+        }
+        
+        #bottom-nav:hover {
+            box-shadow: 0 -8px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .nav-item {
+            position: relative;
+            padding: 8px 12px;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            transform: translateY(0);
+        }
+        
+        .nav-item.active {
+            color: var(--primary-color);
+            transform: translateY(-8px);
         }
         
         .nav-item.active::after {
             content: '';
-            @apply absolute bottom-0 w-6 h-1 bg-blue-600 rounded-full;
+            position: absolute;
+            top: -8px;
             left: 50%;
             transform: translateX(-50%);
+            width: 6px;
+            height: 6px;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+            animation: navPulse 1.5s infinite;
+        }
+        
+        .nav-item i {
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .nav-item.active i {
+            transform: scale(1.2);
+        }
+        
+        .nav-item:not(.active):hover {
+            background: rgba(59, 130, 246, 0.1);
+            transform: translateY(-3px);
+        }
+        
+        /* Pulse animation for notifications and nav items */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes navPulse {
+            0%, 100% { opacity: 1; transform: translateX(-50%) scale(1); }
+            50% { opacity: 0.7; transform: translateX(-50%) scale(1.2); }
+        }
+        
+        .notification-pulse {
+            animation: pulse 1.5s infinite;
+        }
+        
+        /* Bounce animation for active tab */
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        
+        .bounce-animation {
+            animation: bounce 1s infinite;
         }
 
-        /* Status badges */
-        .status-badge {
-            @apply px-2 py-1 rounded-full text-xs font-medium;
+        /* Chat System Styles - Enhanced */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 180px);
+            background-color: #f5f7fa;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
         }
         
-        .status-paid {
-            @apply bg-green-100 text-green-800;
+        .chat-header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            z-index: 10;
         }
         
-        .status-pending {
-            @apply bg-yellow-100 text-yellow-800;
+        .chat-messages {
+            flex: 1;
+            padding: 16px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            background-color: #f5f7fa;
+            background-image: radial-gradient(#e5e7eb 1px, transparent 1px);
+            background-size: 20px 20px;
         }
         
-        .status-late {
-            @apply bg-red-100 text-red-800;
-        }
-
-        /* Attendance dot indicator */
-        .attendance-dot {
-            @apply w-3 h-3 rounded-full;
-        }
-        
-        .present {
-            @apply bg-green-500;
+        .message {
+            max-width: 85%;
+            margin-bottom: 12px;
+            padding: 10px 14px;
+            border-radius: 18px;
+            position: relative;
+            animation: fadeIn 0.3s ease-out;
+            word-break: break-word;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
         }
         
-        .absent {
-            @apply bg-red-500;
+        .received {
+            align-self: flex-start;
+            background-color: white;
+            border-bottom-right-radius: 4px;
         }
         
-        .late {
-            @apply bg-yellow-500;
-        }
-
-        /* Loading spinner */
-        .loading-spinner {
-            @apply w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin;
-        }
-
-        /* Card hover effect */
-        .card-hover {
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        .sent {
+            align-self: flex-end;
+            background-color: var(--primary-color);
+            color: white;
+            border-bottom-left-radius: 4px;
         }
         
-        .card-hover:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        .message-time {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 4px;
+            text-align: right;
         }
-
-        /* Input focus effect */
-        .input-focus:focus {
-            @apply ring-2 ring-blue-300 border-blue-500;
+        
+        .chat-input-container {
+            display: flex;
+            padding: 12px;
+            background-color: white;
+            border-top: 1px solid #e5e7eb;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .chat-input {
+            flex: 1;
+            border: 1px solid #e5e7eb;
+            border-radius: 24px;
+            padding: 10px 16px;
             outline: none;
+            transition: border-color 0.2s;
+            direction: rtl;
+        }
+        
+        .chat-input:focus {
+            border-color: var(--primary-color);
+        }
+        
+        .send-button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            margin-right: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .send-button:hover {
+            background-color: var(--primary-dark);
+            transform: scale(1.05);
+        }
+        
+        .send-button:active {
+            transform: scale(0.95);
+        }
+        
+        .chat-timestamp {
+            text-align: center;
+            margin: 12px 0;
+            font-size: 12px;
+            color: #6b7280;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 4px 12px;
+            border-radius: 12px;
+            display: inline-block;
+            align-self: center;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Button press effect */
-        .btn-press:active {
-            transform: scale(0.98);
+        /* Chat message attachments */
+        .message-attachment {
+            margin-top: 8px;
+            border-radius: 12px;
+            overflow: hidden;
+            max-width: 100%;
+        }
+        
+        .message-attachment img {
+            max-width: 100%;
+            border-radius: 8px;
+            display: block;
+        }
+        
+        .attachment-preview {
+            position: relative;
+            margin-top: 8px;
+            display: inline-block;
+        }
+        
+        .attachment-preview img {
+            max-width: 100px;
+            max-height: 100px;
+            border-radius: 8px;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .remove-attachment {
+            position: absolute;
+            top: -8px;
+            left: -8px;
+            background-color: var(--accent-color);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        /* Chat type selector */
+        .chat-type-selector {
+            display: flex;
+            background-color: white;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 8px;
+        }
+        
+        .chat-type-btn {
+            flex: 1;
+            text-align: center;
+            padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .chat-type-btn.active {
+            background-color: var(--primary-color);
+            color: white;
+            box-shadow: 0 2px 5px rgba(59, 130, 246, 0.3);
+        }
+        
+        .chat-type-btn:not(.active):hover {
+            background-color: #f1f5f9;
+        }
+        
+        /* Quiz message style */
+        .quiz-message {
+            background-color: white;
+            border-radius: 12px;
+            padding: 12px;
+            margin-top: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .quiz-question {
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .quiz-options {
+            margin-left: 8px;
+        }
+        
+        .quiz-option {
+            padding: 6px 8px;
+            margin-bottom: 4px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .quiz-option:hover {
+            background-color: #f1f5f9;
+        }
+        
+        .quiz-option.selected {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        /* Dark Mode Support */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #0f172a; /* Slate 900 */
+                color: #e2e8f0;            /* Slate 200 */
+            }
+        
+            #app, .login-container, #register-form, .card {
+                background-color: #1e293b; /* Slate 800 */
+                color: #e2e8f0;
+            }
+    
+            .login-logo i {
+                color: var(--primary-color);
+            }
+        
+            input:not([type="checkbox"]), select, textarea {
+                background-color: #334155; /* Slate 700 */
+                border-color: #475569;     /* Slate 600 */
+                color: #e2e8f0;
+            }
+    
+            .card-header {
+                background-color: var(--primary-color);
+            }
+
+            /* Dark mode for chat */
+            .chat-container {
+                background-color: #1e293b;
+                background-image: radial-gradient(#334155 1px, transparent 1px);
+            }
+            
+            .received {
+                background-color: #334155;
+                color: #e2e8f0;
+            }
+            
+            .chat-input-container, .chat-type-selector {
+                background-color: #1e293b;
+                border-top-color: #334155;
+                border-bottom-color: #334155;
+            }
+            
+            .chat-input {
+                background-color: #334155;
+                border-color: #475569;
+                color: #e2e8f0;
+            }
+            
+            .quiz-message {
+                background-color: #334155;
+                border-color: #475569;
+            }
+            
+            .quiz-option:hover {
+                background-color: #475569;
+            }
+        }
+        
+        i{
+            padding: 5px;
+            margin : 5px
+        }
+
+        .text-sm{
+            color: #0f172a;
+        }
+        
+        /* Floating action button for chat */
+        .fab {
+            position: fixed;
+            bottom: 80px;
+            left: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            z-index: 90;
+            transition: all 0.3s ease;
+            transform: scale(1);
+        }
+        
+        .fab:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25);
+        }
+        
+        .fab:active {
+            transform: scale(0.95);
+        }
+        
+        .fab i {
+            font-size: 24px;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Chat list styles */
+        .chat-list {
+            padding: 8px;
+        }
+        
+        .chat-list-item {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: white;
+        }
+        
+        .chat-list-item:hover {
+            background-color: #f1f5f9;
+            transform: translateX(-5px);
+        }
+        
+        .chat-list-item.active {
+            background-color: #e0e7ff;
+        }
+        
+        .chat-list-item-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background-color: #e0e7ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 12px;
+            flex-shrink: 0;
+        }
+        
+        .chat-list-item-content {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .chat-list-item-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .chat-list-item-preview {
+            font-size: 13px;
+            color: #64748b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .chat-list-item-time {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-right: 8px;
+        }
+        
+        .chat-list-item-badge {
+            width: 20px;
+            height: 20px;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            margin-right: 8px;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+        
+        /* Animation for new messages */
+        @keyframes highlight {
+            0% { background-color: rgba(59, 130, 246, 0.2); }
+            100% { background-color: transparent; }
+        }
+        
+        .message-highlight {
+            animation: highlight 1.5s ease-out;
+        }
+        
+        /* Typing indicator */
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            background-color: white;
+            border-radius: 18px;
+            margin-bottom: 8px;
+            align-self: flex-start;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            max-width: 120px;
+        }
+        
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #94a3b8;
+            border-radius: 50%;
+            margin: 0 2px;
+            animation: typingAnimation 1.4s infinite ease-in-out;
+        }
+        
+        .typing-dot:nth-child(1) {
+            animation-delay: 0s;
+        }
+        
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes typingAnimation {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-5px); }
         }
     </style>
     <!-- Load Font Awesome for icons -->
@@ -135,7 +698,7 @@
     <!-- Load Axios for HTTP requests -->
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 </head>
-<body class="bg-gray-200 flex items-center justify-center p-4 min-h-screen">
+<body class="bg-gray-200 flex items-center justify-center min-h-screen">
     <!-- Main application wrapper mimicking a phone screen -->
     <div id="app" class="phone-wrapper">
         <!-- Login Page -->
@@ -329,7 +892,7 @@
                     <div class="flex items-center space-x-3 space-x-reverse">
                         <button id="notifications-btn" class="relative text-gray-600 hover:text-blue-500 transition-colors">
                             <i class="fas fa-bell text-xl"></i>
-                            <span class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
+                            <span class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full notification-pulse"></span>
                         </button>
                         <button id="logout-btn" @click="logout" class="rounded-full bg-gray-100 px-4 py-1 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 flex items-center">
                             <i class="fas fa-sign-out-alt ml-1"></i>
@@ -340,7 +903,7 @@
             </header>
 
             <!-- Main Content Area -->
-            <div id="content-area" class="flex-1 scrollable-content">
+            <div id="content-area" class="flex-1 scrollable-content pb-20">
                 <!-- Tab: Dashboard Home -->
                 <div id="home-tab" class="space-y-6" :style="{display: activeTab === 'home' ? 'block' : 'none'}">
                     <!-- Welcome Card -->
@@ -382,6 +945,10 @@
                         <button @click="showTab('attendance')" class="rounded-lg bg-white p-4 shadow text-center transition-all hover:bg-blue-50 hover:text-blue-600">
                             <i class="fas fa-clipboard-check text-purple-500 text-xl mb-2"></i>
                             <p class="text-sm font-medium">الحضور</p>
+                        </button>
+                        <button @click="showTab('chat')" class="rounded-lg bg-white p-4 shadow text-center transition-all hover:bg-blue-50 hover:text-blue-600">
+                            <i class="fas fa-comments text-yellow-500 text-xl mb-2"></i>
+                            <p class="text-sm font-medium">الدردشة</p>
                         </button>
                     </div>
                     
@@ -542,33 +1109,41 @@
                         </div>
                     </div>
                     
-                    <div class="overflow-x-auto rounded-xl shadow-lg">
-                        <table class="w-full min-w-max bg-white text-sm">
-                            <thead>
-                                <tr class="bg-gray-100 text-gray-600">
-                                    <th class="p-3 text-center">الشهر</th>
-                                    <th class="p-3 text-center">المبلغ</th>
-                                    <th class="p-3 text-center">الحصة</th>
-                                    <th class="p-3 text-center">الحالة</th>
-                                </tr>
-                            </thead>
-                            <tbody id="payments-table-body">
-                                <tr v-for="(payment, index) in payments" :key="index" class="border-t border-gray-200 hover:bg-gray-50 transition-colors">
-                                    <td class="p-3 text-center">{{ formatMonth(payment.month) }}</td>
-                                    <td class="p-3 text-center font-medium">{{ payment.amount }} د.ك</td>
-                                    <td class="p-3 text-center text-gray-600">{{ payment.class.name }}</td>
-                                    <td class="p-3 text-center">
-                                        <span class="status-badge" :class="{
-                                            'status-paid': payment.status === 'paid',
-                                            'status-pending': payment.status === 'pending',
-                                            'status-late': payment.status === 'late'
-                                        }">
-                                            {{ formatPaymentStatus(payment.status) }}
-                                        </span>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div class="grid grid-cols-1 gap-4">
+                        <div v-for="(payment, index) in payments" :key="index" class="payment-card">
+                            <div class="payment-card-inner">
+                                <div class="payment-card-front" :class="{
+                                    'payment-paid': payment.status === 'paid',
+                                    'payment-pending': payment.status === 'pending',
+                                    'payment-late': payment.status === 'late'
+                                }">
+                                    <div class="flex justify-between items-center">
+                                        <div>
+                                            <h4 class="font-medium">{{ formatMonth(payment.month) }}</h4>
+                                            <p class="text-sm">{{ payment.class.name }}</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <span class="block text-lg font-semibold">{{ payment.amount }} د.ك</span>
+                                            <span class="text-xs font-medium px-2 py-1 rounded-full bg-white bg-opacity-20">
+                                                {{ formatPaymentStatus(payment.status) }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="payment-card-back">
+                                    <div v-if="payment.paymentDate" class="text-center">
+                                        <p class="text-sm mb-1">تاريخ السداد</p>
+                                        <p class="font-medium">{{ formatDate(payment.paymentDate) }}</p>
+                                    </div>
+                                    <div v-else class="text-center">
+                                        <p class="text-sm">لم يتم السداد بعد</p>
+                                        <button class="mt-2 px-3 py-1 bg-white bg-opacity-20 rounded-full text-xs hover:bg-opacity-30 transition">
+                                            دفع الآن
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
                     <div v-if="payments.length === 0" class="text-center py-10 bg-white rounded-xl shadow-lg">
@@ -627,50 +1202,169 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Tab: Chat System -->
+                <div id="chat-tab" class="space-y-6" :style="{display: activeTab === 'chat' ? 'block' : 'none'}">
+                    <div class="flex items-center justify-between mb-4">
+                        <button @click="showChatList" class="text-blue-500 p-2 rounded-full hover:bg-blue-50 transition-colors">
+                            <i class="fas fa-arrow-right"></i>
+                        </button>
+                        <h2 class="text-xl font-semibold text-gray-800 flex-1 text-center">الدردشة</h2>
+                    </div>
+                    
+                    <!-- Chat List View -->
+                    <div v-if="showChatListView" class="chat-list">
+                        <div class="chat-list-item" 
+                             v-for="chat in availableChats" 
+                             :key="chat.id" 
+                             :class="{'active': activeChatId === chat.id}"
+                             @click="openChat(chat.id)">
+                            <div class="chat-list-item-avatar">
+                                <i :class="chat.icon"></i>
+                            </div>
+                            <div class="chat-list-item-content">
+                                <div class="chat-list-item-title">{{ chat.title }}</div>
+                                <div class="chat-list-item-preview">{{ chat.lastMessage }}</div>
+                            </div>
+                            <div class="chat-list-item-time">{{ formatTimeShort(chat.lastMessageTime) }}</div>
+                            <div v-if="chat.unreadCount > 0" class="chat-list-item-badge">
+                                {{ chat.unreadCount }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Chat Conversation View -->
+                    <div v-else class="chat-container">
+                        <div class="chat-header">
+                            <span>{{ activeChatTitle }}</span>
+                            <i :class="activeChatIcon"></i>
+                        </div>
+                        
+                        <div class="chat-messages" ref="chatMessages">
+                            <div class="chat-timestamp">اليوم</div>
+                            
+                            <div v-for="(message, index) in activeChatMessages" :key="index" 
+                                 class="message" 
+                                 :class="message.sender === 'student' ? 'sent' : 'received'"
+                                 :ref="'message-' + index">
+                                <div>{{ message.text }}</div>
+                                
+                                <!-- Message attachments -->
+                                <div v-if="message.attachments && message.attachments.length > 0" class="message-attachment">
+                                    <img v-for="(attachment, aIndex) in message.attachments" 
+                                         :key="aIndex" 
+                                         :src="attachment" 
+                                         alt="Attachment">
+                                </div>
+                                
+                                <!-- Quiz message -->
+                                <div v-if="message.quiz" class="quiz-message">
+                                    <div class="quiz-question">{{ message.quiz.question }}</div>
+                                    <div class="quiz-options">
+                                        <div v-for="(option, oIndex) in message.quiz.options" 
+                                             :key="oIndex" 
+                                             class="quiz-option"
+                                             :class="{'selected': message.quiz.selected === oIndex}"
+                                             @click="selectQuizOption(message.id, oIndex)">
+                                            {{ option }}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="message-time">{{ formatTime(message.time) }}</div>
+                            </div>
+                            
+                            <!-- Typing indicator -->
+                            <div v-if="isTyping" class="typing-indicator">
+                                <div class="typing-dot"></div>
+                                <div class="typing-dot"></div>
+                                <div class="typing-dot"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="chat-input-container">
+                            <button class="p-2 text-gray-500 hover:text-blue-500 transition-colors" @click="toggleAttachmentMenu">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                            
+                            <!-- Attachment menu -->
+                            <div v-if="showAttachmentMenu" class="absolute bottom-16 left-4 bg-white shadow-lg rounded-lg p-2 z-20">
+                                <button class="p-2 text-gray-700 hover:bg-gray-100 rounded w-full text-right" @click="attachImage">
+                                    <i class="fas fa-image ml-2"></i> صورة
+                                </button>
+                                <button class="p-2 text-gray-700 hover:bg-gray-100 rounded w-full text-right" @click="attachDocument">
+                                    <i class="fas fa-file ml-2"></i> ملف
+                                </button>
+                            </div>
+                            
+                            <!-- Attachment preview -->
+                            <div v-if="attachmentPreview" class="attachment-preview">
+                                <img :src="attachmentPreview" alt="Attachment Preview">
+                                <div class="remove-attachment" @click="removeAttachment">
+                                    <i class="fas fa-times"></i>
+                                </div>
+                            </div>
+                            
+                            <input type="text" 
+                                   class="chat-input" 
+                                   v-model="newMessage" 
+                                   placeholder="اكتب رسالتك هنا..."
+                                   @keyup.enter="sendMessage">
+                            <button class="send-button" @click="sendMessage">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <!-- Bottom Navigation Bar -->
-            <nav id="bottom-nav" class="bg-white p-2 shadow-lg border-t border-gray-100">
+            <!-- Enhanced Bottom Navigation Bar with Floating Effect -->
+            <nav id="bottom-nav" :class="{'hidden': showChatListView === false}">
                 <ul class="flex justify-around items-center h-16">
                     <li>
-                        <a href="#" class="nav-item flex flex-col items-center justify-center transition-colors" 
+                        <a href="#" class="nav-item flex flex-col items-center justify-center transition-all" 
                            :class="{'active text-blue-600': activeTab === 'home', 'text-gray-500 hover:text-blue-500': activeTab !== 'home'}" 
                            @click.prevent="showTab('home')">
-                            <i class="fas fa-home text-xl"></i>
+                            <i class="fas fa-home text-xl" :class="{'bounce-animation': activeTab === 'home'}"></i>
                             <span class="text-xs font-semibold mt-1">الرئيسية</span>
                         </a>
                     </li>
                     <li>
-                        <a href="#" class="nav-item flex flex-col items-center justify-center transition-colors" 
+                        <a href="#" class="nav-item flex flex-col items-center justify-center transition-all" 
                            :class="{'active text-blue-600': activeTab === 'classes', 'text-gray-500 hover:text-blue-500': activeTab !== 'classes'}" 
                            @click.prevent="showTab('classes')">
-                            <i class="fas fa-calendar-alt text-xl"></i>
+                            <i class="fas fa-calendar-alt text-xl" :class="{'bounce-animation': activeTab === 'classes'}"></i>
                             <span class="text-xs font-semibold mt-1">الحصص</span>
                         </a>
                     </li>
                     <li>
-                        <a href="#" class="nav-item flex flex-col items-center justify-center transition-colors" 
+                        <a href="#" class="nav-item flex flex-col items-center justify-center transition-all" 
                            :class="{'active text-blue-600': activeTab === 'payments', 'text-gray-500 hover:text-blue-500': activeTab !== 'payments'}" 
                            @click.prevent="showTab('payments')">
-                            <i class="fas fa-credit-card text-xl"></i>
+                            <i class="fas fa-credit-card text-xl" :class="{'bounce-animation': activeTab === 'payments'}"></i>
                             <span class="text-xs font-semibold mt-1">الدفعات</span>
                         </a>
                     </li>
                     <li>
-                        <a href="#" class="nav-item flex flex-col items-center justify-center transition-colors" 
-                           :class="{'active text-blue-600': activeTab === 'attendance', 'text-gray-500 hover:text-blue-500': activeTab !== 'attendance'}" 
-                           @click.prevent="showTab('attendance')">
-                            <i class="fas fa-clipboard-check text-xl"></i>
-                            <span class="text-xs font-semibold mt-1">الحضور</span>
+                        <a href="#" class="nav-item flex flex-col items-center justify-center transition-all" 
+                           :class="{'active text-blue-600': activeTab === 'chat', 'text-gray-500 hover:text-blue-500': activeTab !== 'chat'}" 
+                           @click.prevent="showTab('chat')">
+                            <i class="fas fa-comments text-xl" :class="{'bounce-animation': activeTab === 'chat'}"></i>
+                            <span class="text-xs font-semibold mt-1">الدردشة</span>
                         </a>
                     </li>
                 </ul>
             </nav>
+            
+            <!-- Floating Action Button for New Chat (shown only in chat tab) -->
+            <div v-if="activeTab === 'chat' && showChatListView" class="fab" @click="startNewChat">
+                <i class="fas fa-plus"></i>
+            </div>
         </div>
     </div>
 
     <script>
-        const { createApp, ref, computed, onMounted } = Vue;
+        const { createApp, ref, computed, onMounted, nextTick } = Vue;
 
         createApp({
             setup() {
@@ -709,9 +1403,223 @@
                     'السبت': []
                 });
                 
-                const payments = ref([]);
+                const payments = ref([
+                    {
+                        month: '2023-10',
+                        amount: 150,
+                        class: { name: 'رياضيات 3AS' },
+                        status: 'paid',
+                        paymentDate: '2023-10-05'
+                    },
+                    {
+                        month: '2023-11',
+                        amount: 150,
+                        class: { name: 'رياضيات 3AS' },
+                        status: 'pending',
+                        paymentDate: null
+                    },
+                    {
+                        month: '2023-09',
+                        amount: 150,
+                        class: { name: 'رياضيات 3AS' },
+                        status: 'late',
+                        paymentDate: '2023-09-20'
+                    },
+                    {
+                        month: '2023-08',
+                        amount: 150,
+                        class: { name: 'رياضيات 3AS' },
+                        status: 'paid',
+                        paymentDate: '2023-08-01'
+                    }
+                ]);
+                
                 const attendanceRecords = ref([]);
                 
+                // Enhanced Chat System
+                const showChatListView = ref(true);
+                const activeChatId = ref(null);
+                const activeChatTitle = ref('');
+                const activeChatIcon = ref('');
+                const newMessage = ref('');
+                const showAttachmentMenu = ref(false);
+                const attachmentPreview = ref(null);
+                const isTyping = ref(false);
+                const chatMessages = ref(null);
+                
+                // Available chats - admin, lesson groups, and student chats
+                const availableChats = ref([
+                    {
+                        id: 'admin',
+                        title: 'الدردشة مع الإدارة',
+                        icon: 'fas fa-headset',
+                        lastMessage: 'كيف يمكنني مساعدتك؟',
+                        lastMessageTime: '2023-11-15T09:00:00',
+                        unreadCount: 0
+                    },
+                    {
+                        id: 'math-3as',
+                        title: 'مجموعة الرياضيات',
+                        icon: 'fas fa-square-root-alt',
+                        lastMessage: 'الاختبار يوم الأحد القادم',
+                        lastMessageTime: '2023-11-14T15:30:00',
+                        unreadCount: 2
+                    },
+                    {
+                        id: 'physics-3as',
+                        title: 'مجموعة الفيزياء',
+                        icon: 'fas fa-atom',
+                        lastMessage: 'تم نشر الواجب الجديد',
+                        lastMessageTime: '2023-11-13T11:20:00',
+                        unreadCount: 0
+                    },
+                    {
+                        id: 'student-ahmed',
+                        title: 'أحمد محمد',
+                        icon: 'fas fa-user-graduate',
+                        lastMessage: 'هل فهمت الدرس اليوم؟',
+                        lastMessageTime: '2023-11-12T18:45:00',
+                        unreadCount: 1
+                    }
+                ]);
+                
+                // Chat messages for each chat
+                const chatData = ref({
+                    'admin': [
+                        {
+                            id: 1,
+                            text: 'مرحباً بك في نظام الدردشة مع إدارة المدرسة. كيف يمكنني مساعدتك؟',
+                            sender: 'admin',
+                            time: '2023-11-15T09:00:00'
+                        },
+                        {
+                            id: 2,
+                            text: 'أريد الاستفسار عن موعد الاختبار القادم',
+                            sender: 'student',
+                            time: '2023-11-15T09:02:00'
+                        },
+                        {
+                            id: 3,
+                            text: 'الاختبار سيكون يوم الأحد القادم الموافق 20 نوفمبر',
+                            sender: 'admin',
+                            time: '2023-11-15T09:03:00'
+                        },
+                        {
+                            id: 4,
+                            text: 'شكراً لك على المعلومة',
+                            sender: 'student',
+                            time: '2023-11-15T09:04:00'
+                        }
+                    ],
+                    'math-3as': [
+                        {
+                            id: 1,
+                            text: 'مرحباً بكم في مجموعة الرياضيات للصف الثالث ثانوي',
+                            sender: 'teacher',
+                            time: '2023-11-14T15:00:00'
+                        },
+                        {
+                            id: 2,
+                            text: 'الاختبار سيكون يوم الأحد القادم على الفصل الثالث',
+                            sender: 'teacher',
+                            time: '2023-11-14T15:10:00'
+                        },
+                        {
+                            id: 3,
+                            text: 'هل هناك أي أسئلة حول المادة؟',
+                            sender: 'teacher',
+                            time: '2023-11-14T15:15:00'
+                        },
+                        {
+                            id: 4,
+                            text: 'نعم، لدي سؤال حول المسألة رقم 5 في الواجب',
+                            sender: 'student',
+                            time: '2023-11-14T15:20:00'
+                        },
+                        {
+                            id: 5,
+                            text: 'أنا أيضاً لم أفهم هذه المسألة',
+                            sender: 'student2',
+                            time: '2023-11-14T15:25:00'
+                        },
+                        {
+                            id: 6,
+                            text: 'سأقوم بشرحها لكم الآن',
+                            sender: 'teacher',
+                            time: '2023-11-14T15:30:00',
+                            attachments: ['https://via.placeholder.com/300x200?text=Math+Problem+5']
+                        }
+                    ],
+                    'physics-3as': [
+                        {
+                            id: 1,
+                            text: 'تم نشر الواجب الجديد على المنصة',
+                            sender: 'teacher',
+                            time: '2023-11-13T11:00:00'
+                        },
+                        {
+                            id: 2,
+                            text: 'آخر موعد للتسليم يوم الخميس',
+                            sender: 'teacher',
+                            time: '2023-11-13T11:10:00'
+                        },
+                        {
+                            id: 3,
+                            text: 'هل يمكن تمديد الموعد؟',
+                            sender: 'student',
+                            time: '2023-11-13T11:15:00'
+                        },
+                        {
+                            id: 4,
+                            text: 'سأفكر في الأمر وسأخبركم',
+                            sender: 'teacher',
+                            time: '2023-11-13T11:20:00'
+                        }
+                    ],
+                    'student-ahmed': [
+                        {
+                            id: 1,
+                            text: 'مرحباً، كيف حالك؟',
+                            sender: 'student2',
+                            time: '2023-11-12T18:30:00'
+                        },
+                        {
+                            id: 2,
+                            text: 'أهلاً، بخير الحمد لله. وأنت؟',
+                            sender: 'student',
+                            time: '2023-11-12T18:35:00'
+                        },
+                        {
+                            id: 3,
+                            text: 'بخير، هل فهمت الدرس اليوم في الرياضيات؟',
+                            sender: 'student2',
+                            time: '2023-11-12T18:40:00'
+                        },
+                        {
+                            id: 4,
+                            text: 'جزء منه فقط، هل يمكنك مساعدتي؟',
+                            sender: 'student',
+                            time: '2023-11-12T18:45:00'
+                        }
+                    ]
+                });
+                
+                // Quiz data for lesson chats
+                const quizData = ref({
+                    'math-3as': {
+                        question: 'ما هو حل المعادلة التالية: 2x + 5 = 15؟',
+                        options: ['x = 5', 'x = 10', 'x = 7.5', 'x = 3'],
+                        correctAnswer: 0,
+                        selected: null
+                    }
+                });
+                
+                // Active chat messages (computed based on selected chat)
+                const activeChatMessages = computed(() => {
+                    if (!activeChatId.value) return [];
+                    return chatData.value[activeChatId.value] || [];
+                });
+
                 // Forms
                 const loginForm = ref({
                     username: '',
@@ -771,11 +1679,57 @@
 
                 const showTab = (tab) => {
                     activeTab.value = tab;
+                    showChatListView.value = true;
+                    
                     // Scroll to top when changing tabs
                     setTimeout(() => {
                         const contentArea = document.querySelector('.scrollable-content');
                         if (contentArea) contentArea.scrollTop = 0;
                     }, 50);
+                };
+                
+                const showChatList = () => {
+                    showChatListView.value = true;
+                    activeChatId.value = null;
+                };
+                
+                const openChat = (chatId) => {
+                    activeChatId.value = chatId;
+                    showChatListView.value = false;
+                    
+                    // Find chat title and icon
+                    const chat = availableChats.value.find(c => c.id === chatId);
+                    if (chat) {
+                        activeChatTitle.value = chat.title;
+                        activeChatIcon.value = chat.icon;
+                    }
+                    
+                    // Mark as read
+                    markChatAsRead(chatId);
+                    
+                    // Scroll to bottom
+                    nextTick(() => {
+                        scrollChatToBottom();
+                    });
+                };
+                
+                const markChatAsRead = (chatId) => {
+                    const chat = availableChats.value.find(c => c.id === chatId);
+                    if (chat) {
+                        chat.unreadCount = 0;
+                    }
+                };
+                
+                const scrollChatToBottom = () => {
+                    const container = chatMessages.value;
+                    if (container) {
+                        container.scrollTop = container.scrollHeight;
+                    }
+                };
+                
+                const startNewChat = () => {
+                    // In a real app, this would open a modal to select chat type and participants
+                    alert('في التطبيق الكامل، ستفتح هذه النافذة نموذجاً لبدء محادثة جديدة');
                 };
 
                 const handleLogin = async () => {
@@ -915,6 +1869,207 @@
                         console.error('Error fetching attendance records:', error);
                     }
                 };
+                
+                // Chat Methods
+                const sendMessage = () => {
+                    if (!newMessage.value.trim() && !attachmentPreview.value) return;
+                    
+                    const message = {
+                        id: Date.now(),
+                        text: newMessage.value,
+                        sender: 'student',
+                        time: new Date().toISOString()
+                    };
+                    
+                    // Add attachment if exists
+                    if (attachmentPreview.value) {
+                        message.attachments = [attachmentPreview.value];
+                    }
+                    
+                    // Add to current chat
+                    if (activeChatId.value) {
+                        if (!chatData.value[activeChatId.value]) {
+                            chatData.value[activeChatId.value] = [];
+                        }
+                        chatData.value[activeChatId.value].push(message);
+                        
+                        // Update last message in chat list
+                        const chat = availableChats.value.find(c => c.id === activeChatId.value);
+                        if (chat) {
+                            chat.lastMessage = newMessage.value || 'مرفق صورة';
+                            chat.lastMessageTime = new Date().toISOString();
+                        }
+                    }
+                    
+                    newMessage.value = '';
+                    attachmentPreview.value = null;
+                    showAttachmentMenu.value = false;
+                    
+                    // Scroll to bottom after sending
+                    nextTick(() => {
+                        scrollChatToBottom();
+                    });
+                    
+                    // Simulate reply after 1-3 seconds
+                    if (Math.random() > 0.3) { // 70% chance of reply
+                        isTyping.value = true;
+                        
+                        setTimeout(() => {
+                            isTyping.value = false;
+                            
+                            let reply = {};
+                            const replies = {
+                                'admin': [
+                                    'شكراً لرسالتك، سنرد عليك قريباً',
+                                    'تم استلام استفسارك وسيتم الرد عليه من قبل الإدارة',
+                                    'نقدر تواصلك معنا، هل لديك أي استفسارات أخرى؟',
+                                    'تم تسجيل ملاحظتك وسنعمل على متابعتها'
+                                ],
+                                'math-3as': [
+                                    'سأقوم بالرد على استفسارك قريباً',
+                                    'شكراً لسؤالك، هل لديك أسئلة أخرى؟',
+                                    'تم تسجيل سؤالك وسأجيب عليه في الحصة القادمة',
+                                    'هذا سؤال جيد، سأشرحه للجميع'
+                                ],
+                                'physics-3as': [
+                                    'سأراجع سؤالك وأرد عليك',
+                                    'شكراً للمشاركة في المناقشة',
+                                    'هل يمكنك توضيح سؤالك أكثر؟',
+                                    'سأضع الإجابة على المنصة'
+                                ],
+                                'student-ahmed': [
+                                    'أهلاً، كيف يمكنني مساعدتك؟',
+                                    'شكراً للتواصل، هل تريد شرح شيء معين؟',
+                                    'سأراجع الدرس وأخبرك',
+                                    'هل يمكننا مناقشة هذا في المدرسة غداً؟'
+                                ]
+                            };
+                            
+                            const randomReply = replies[activeChatId.value] 
+                                ? replies[activeChatId.value][Math.floor(Math.random() * replies[activeChatId.value].length)]
+                                : 'شكراً لرسالتك';
+                            
+                            reply = {
+                                id: Date.now() + 1,
+                                text: randomReply,
+                                sender: activeChatId.value === 'admin' ? 'admin' : 
+                                      (activeChatId.value.includes('student-') ? 'student2' : 'teacher'),
+                                time: new Date().toISOString()
+                            };
+                            
+                            // For lesson chats, sometimes send a quiz
+                            if (activeChatId.value.includes('-3as') && Math.random() > 0.7) {
+                                reply.quiz = {
+                                    question: quizData.value[activeChatId.value]?.question || 'ما هو حل المسألة التالية؟',
+                                    options: quizData.value[activeChatId.value]?.options || ['الخيار 1', 'الخيار 2', 'الخيار 3', 'الخيار 4'],
+                                    correctAnswer: quizData.value[activeChatId.value]?.correctAnswer || 0,
+                                    selected: null
+                                };
+                            }
+                            
+                            // For lesson chats, sometimes send an image
+                            if (activeChatId.value.includes('-3as') && Math.random() > 0.8) {
+                                reply.attachments = ['https://via.placeholder.com/300x200?text=Lesson+Material'];
+                            }
+                            
+                            chatData.value[activeChatId.value].push(reply);
+                            
+                            // Update last message in chat list
+                            const chat = availableChats.value.find(c => c.id === activeChatId.value);
+                            if (chat) {
+                                chat.lastMessage = reply.text || (reply.quiz ? 'سؤال جديد' : 'مرفق صورة');
+                                chat.lastMessageTime = new Date().toISOString();
+                            }
+                            
+                            scrollChatToBottom();
+                        }, 1000 + Math.random() * 2000);
+                    }
+                };
+                
+                const toggleAttachmentMenu = () => {
+                    showAttachmentMenu.value = !showAttachmentMenu.value;
+                };
+                
+                const attachImage = () => {
+                    // In a real app, this would open the file picker
+                    // For demo, we'll use a placeholder image
+                    attachmentPreview.value = 'https://via.placeholder.com/300x200?text=Image+Attachment';
+                    showAttachmentMenu.value = false;
+                };
+                
+                const attachDocument = () => {
+                    // In a real app, this would open the file picker
+                    alert('في التطبيق الكامل، ستفتح هذه النافذة محدد الملفات لاختيار مستند');
+                    showAttachmentMenu.value = false;
+                };
+                
+                const removeAttachment = () => {
+                    attachmentPreview.value = null;
+                };
+                
+                const selectQuizOption = (messageId, optionIndex) => {
+                    // Find the message with quiz
+                    const chat = chatData.value[activeChatId.value];
+                    if (chat) {
+                        const message = chat.find(m => m.id === messageId);
+                        if (message && message.quiz) {
+                            message.quiz.selected = optionIndex;
+                            
+                            // In a real app, this would send the answer to the server
+                            setTimeout(() => {
+                                if (optionIndex === message.quiz.correctAnswer) {
+                                    const reply = {
+                                        id: Date.now(),
+                                        text: 'إجابة صحيحة! أحسنت!',
+                                        sender: 'teacher',
+                                        time: new Date().toISOString()
+                                    };
+                                    chat.push(reply);
+                                    scrollChatToBottom();
+                                } else {
+                                    const reply = {
+                                        id: Date.now(),
+                                        text: 'إجابة خاطئة، حاول مرة أخرى!',
+                                        sender: 'teacher',
+                                        time: new Date().toISOString()
+                                    };
+                                    chat.push(reply);
+                                    scrollChatToBottom();
+                                }
+                            }, 500);
+                        }
+                    }
+                };
+                
+                const formatTime = (timeString) => {
+                    const time = new Date(timeString);
+                    return time.toLocaleTimeString('ar-EG', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                };
+                
+                const formatTimeShort = (timeString) => {
+                    const now = new Date();
+                    const time = new Date(timeString);
+                    const diffDays = Math.floor((now - time) / (1000 * 60 * 60 * 24));
+                    
+                    if (diffDays === 0) {
+                        return time.toLocaleTimeString('ar-EG', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                    } else if (diffDays === 1) {
+                        return 'أمس';
+                    } else if (diffDays < 7) {
+                        return `${diffDays} يوم`;
+                    } else {
+                        return time.toLocaleDateString('ar-EG', {
+                            month: 'short',
+                            day: 'numeric'
+                        });
+                    }
+                };
 
                 // Formatting helpers
                 const formatDate = (dateString) => {
@@ -981,6 +2136,9 @@
                         currentPage.value = 'dashboard';
                         fetchStudentData();
                     }
+                    
+                    // Initialize chat scroll position
+                    setTimeout(scrollChatToBottom, 500);
                 });
 
                 return {
@@ -998,6 +2156,17 @@
                     payments,
                     attendanceRecords,
                     days,
+                    chatMessages,
+                    newMessage,
+                    showChatListView,
+                    activeChatId,
+                    activeChatTitle,
+                    activeChatIcon,
+                    availableChats,
+                    activeChatMessages,
+                    showAttachmentMenu,
+                    attachmentPreview,
+                    isTyping,
                     
                     // Forms
                     loginForm,
@@ -1012,16 +2181,28 @@
                     // Methods
                     switchToPage,
                     showTab,
+                    showChatList,
+                    openChat,
+                    startNewChat,
                     handleLogin,
                     handleRegistration,
                     logout,
+                    sendMessage,
+                    toggleAttachmentMenu,
+                    attachImage,
+                    attachDocument,
+                    removeAttachment,
+                    selectQuizOption,
+                    scrollChatToBottom,
                     
                     // Formatting helpers
                     formatDate,
                     formatMonth,
                     formatPaymentStatus,
                     formatAttendanceStatus,
-                    formatAcademicYear
+                    formatAcademicYear,
+                    formatTime,
+                    formatTimeShort
                 };
             }
         }).mount('#app');
