@@ -338,24 +338,22 @@
                             </div>
                         </div>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
                         <!-- Dashboard Section -->
                         <div id="dashboard" class="content-section active">
                             <h2 class="mb-4"><i class="bi bi-speedometer2 me-2"></i>لوحة التحكم</h2>
+
+                            <div class="mb-3">
+                                <button id="connectRFIDBtn" class="btn btn-primary">
+                                  <i class="bi bi-usb-plug"></i> Connect RFID Reader
+                                </button>
+                                <button id="disconnectRFIDBtn" class="btn btn-danger" disabled>
+                                  <i class="bi bi-usb-symbol"></i> Disconnect
+                                </button>
+                                <span id="rfidStatus" class="badge bg-secondary">Not connected</span>
+                              </div>
+
+
+                              
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="card">

@@ -191,9 +191,23 @@ document.querySelectorAll('[data-section]').forEach(link => {
         });
         
         // Remove active from all links
-        document.querySelectorAll('.nav-link').forEach(navLink => {
-            navLink.classList.remove('active');
-        });
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+              e.preventDefault();
+              const sectionId = this.getAttribute('data-section');
+              
+              // Remove active class from all links and sections
+              document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+              document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active'));
+              
+              // Add active class to clicked link and corresponding section
+              this.classList.add('active');
+              document.getElementById(sectionId).classList.add('active');
+              
+              // Load data for the section
+              loadSectionData(sectionId);
+            });
+          });
         
         // Activate current link
         this.classList.add('active');
@@ -221,47 +235,68 @@ document.querySelectorAll('[data-section]').forEach(link => {
 // Event listeners
 document.getElementById('loginForm').addEventListener('submit', function(e) {
     e.preventDefault();
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-    login(username, password);
-});
-
-document.getElementById('registerForm').addEventListener('submit', function(e) {
+    // Simulate login
+    Swal.fire({
+      title: 'تسجيل الدخول',
+      text: 'جاري التحقق من بيانات الدخول...',
+      icon: 'info',
+      showConfirmButton: false,
+      timer: 1500
+    }).then(() => {
+      document.getElementById('login-section').style.display = 'none';
+      document.getElementById('main-app').style.display = 'block';
+      // Set user info
+      document.getElementById('user-name').textContent = 'المستخدم';
+      document.getElementById('user-role').textContent = 'مدير النظام';
+    });
+  });
+  
+  document.getElementById('registerForm').addEventListener('submit', function(e) {
     e.preventDefault();
-    
-    const password = document.getElementById('regPassword').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
-    
-    if (password !== confirmPassword) {
-        Swal.fire('خطأ', 'كلمة المرور وتأكيدها غير متطابقين', 'error');
-        return;
-    }
-    
-    const userData = {
-        username: document.getElementById('regUsername').value,
-        password: password,
-        role: document.getElementById('role').value,
-        fullName: document.getElementById('fullName').value,
-        phone: document.getElementById('phone').value,
-        email: document.getElementById('email').value
-    };
-    
-    register(userData);
-});
+    Swal.fire({
+      title: 'تم التسجيل بنجاح',
+      text: 'تم إنشاء حسابك بنجاح، يمكنك الآن تسجيل الدخول',
+      icon: 'success'
+    }).then(() => {
+      document.getElementById('register-section').style.display = 'none';
+      document.getElementById('login-section').style.display = 'block';
+    });
+  });
+  
+  
+
+document.getElementById('current-year').textContent = new Date().getFullYear();
+
 
 document.getElementById('show-register').addEventListener('click', function(e) {
     e.preventDefault();
-    showRegisterForm();
-});
-
-document.getElementById('show-login').addEventListener('click', function(e) {
+    document.getElementById('login-section').style.display = 'none';
+    document.getElementById('register-section').style.display = 'block';
+  });
+  document.getElementById('show-login').addEventListener('click', function(e) {
     e.preventDefault();
-    showLoginForm();
-});
+    document.getElementById('register-section').style.display = 'none';
+    document.getElementById('login-section').style.display = 'block';
+  });
+  
 
-document.getElementById('logoutBtn').addEventListener('click', function() {
-    logout();
-});
+  document.getElementById('logoutBtn').addEventListener('click', function(e) {
+    e.preventDefault();
+    Swal.fire({
+      title: 'تسجيل الخروج',
+      text: 'هل أنت متأكد أنك تريد تسجيل الخروج؟',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'نعم',
+      cancelButtonText: 'إلغاء'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        document.getElementById('main-app').style.display = 'none';
+        document.getElementById('login-section').style.display = 'block';
+      }
+    });
+  });
+  
 
 // Data loading functions (students, teachers, classes, etc.)
 async function loadStudents() {
@@ -710,32 +745,31 @@ function getAcademicYearName(code) {
     if (!code || code === 'NS' || code === 'غير محدد') return 'غير محدد';
     
     const years = {
-      // Secondary (AS)
-      '1AS': 'الأولى ثانوي',
-      '2AS': 'الثانية ثانوي',
-      '3AS': 'الثالثة ثانوي',
-      // Middle (MS)
-      '1MS': 'الأولى متوسط',
-      '2MS': 'الثانية متوسط',
-      '3MS': 'الثالثة متوسط',
-      '4MS': 'الرابعة متوسط',
-      '5MS': 'الخامسة متوسط',
-      // Primary (AP)
-      '1AP': 'الأولى ابتدائي',
-      '2AP': 'الثانية ابتدائي',
-      '3AP': 'الثالثة ابتدائي',
-      '4AP': 'الرابعة ابتدائي',
-      '5AP': 'الخامسة ابتدائي',
-      // Other possible values
-      'اولى ابتدائي': 'الأولى ابتدائي',
-      'ثانية ابتدائي': 'الثانية ابتدائي',
-      'ثالثة ابتدائي': 'الثالثة ابتدائي',
-      'رابعة ابتدائي': 'الرابعة ابتدائي',
-      'خامسة ابتدائي': 'الخامسة ابتدائي'
+        // Secondary (AS)
+        '1AS': 'الأولى ثانوي',
+        '2AS': 'الثانية ثانوي',
+        '3AS': 'الثالثة ثانوي',
+        // Middle (MS)
+        '1MS': 'الأولى متوسط',
+        '2MS': 'الثانية متوسط',
+        '3MS': 'الثالثة متوسط',
+        '4MS': 'الرابعة متوسط',
+        // Primary (AP)
+        '1AP': 'الأولى ابتدائي',
+        '2AP': 'الثانية ابتدائي',
+        '3AP': 'الثالثة ابتدائي',
+        '4AP': 'الرابعة ابتدائي',
+        '5AP': 'الخامسة ابتدائي',
+        // Other possible values
+        'اولى ابتدائي': 'الأولى ابتدائي',
+        'ثانية ابتدائي': 'الثانية ابتدائي',
+        'ثالثة ابتدائي': 'الثالثة ابتدائي',
+        'رابعة ابتدائي': 'الرابعة ابتدائي',
+        'خامسة ابتدائي': 'الخامسة ابتدائي'
     };
     
     return years[code] || code; // Fallback to original code if not found
-  }
+}
 // Form submission handlers
 document.getElementById('saveStudentBtn').addEventListener('click', async () => {
     const studentData = {
@@ -1247,223 +1281,59 @@ async function printPaymentReceipt(payment) {
                 <meta charset="UTF-8">
                 <title>إيصال دفع</title>
                 <style>
-                    @page {
-                        size: A4;
-                        margin: 0;
-                    }
                     body {
-                        width: 210mm;
-                        height: 297mm;
-                        margin: 0;
-                        padding: 15mm;
-                        font-family: 'Arial', sans-serif;
-                        color: #333;
-                        line-height: 1.6;
-                        position: relative;
-                    }
-                    .receipt-container {
-                        width: 100%;
-                        height: 100%;
-                        border: 2px solid #27ae60;
-                        border-radius: 5px;
-                        padding: 10mm;
-                        box-sizing: border-box;
-                        position: relative;
-                        overflow: hidden;
-                    }
-                    .logo-container {
-                        background-color: #000;
+                        font-family: Arial, sans-serif;
+                        width: 80mm;
+                        margin: 0 auto;
                         padding: 10px;
-                        border-radius: 5px;
-                        display: inline-block;
-                        margin-bottom: 15px;
-                    }
-                    .logo {
-                        height: 50px;
-                        filter: brightness(0) invert(1);
                     }
                     .header {
                         text-align: center;
-                        margin-bottom: 20px;
-                        border-bottom: 2px solid #27ae60;
-                        padding-bottom: 10px;
+                        margin-bottom: 15px;
                     }
-                    .title {
-                        color: #2c3e50;
-                        margin: 10px 0 5px;
-                        font-size: 24px;
+                    .receipt-info {
+                        margin-bottom: 15px;
                     }
-                    .subtitle {
-                        color: #7f8c8d;
-                        font-size: 14px;
-                    }
-                    .receipt-details {
-                        margin: 20px 0;
-                    }
-                    .detail-row {
+                    .receipt-info div {
                         display: flex;
                         justify-content: space-between;
-                        margin-bottom: 12px;
-                        padding-bottom: 8px;
-                        border-bottom: 1px dashed #ddd;
-                        font-size: 14px;
-                    }
-                    .detail-label {
-                        font-weight: bold;
-                        color: #2c3e50;
-                        width: 40%;
-                    }
-                    .detail-value {
-                        color: #34495e;
-                        width: 60%;
-                        text-align: left;
-                    }
-                    .payment-info {
-                        display: flex;
-                        justify-content: space-between;
-                        margin: 20px 0;
-                    }
-                    .payment-method {
-                        background-color: #e8f5e9;
-                        padding: 10px;
-                        border-radius: 5px;
-                        width: 48%;
-                        font-size: 14px;
-                    }
-                    .amount-section {
-                        background-color: #e8f5e9;
-                        padding: 15px;
-                        border-radius: 5px;
-                        text-align: center;
-                        margin: 20px 0;
-                    }
-                    .amount {
-                        font-size: 28px;
-                        color: #27ae60;
-                        font-weight: bold;
-                        margin: 5px 0;
+                        margin-bottom: 5px;
                     }
                     .footer {
+                        margin-top: 20px;
                         text-align: center;
-                        margin-top: 30px;
                         font-size: 12px;
-                        color: #7f8c8d;
-                        border-top: 2px solid #27ae60;
-                        padding-top: 10px;
-                        position: absolute;
-                        bottom: 10mm;
-                        left: 10mm;
-                        right: 10mm;
-                    }
-                    .signature {
-                        display: flex;
-                        justify-content: space-between;
-                        margin-top: 40px;
-                    }
-                    .signature-line {
-                        border-top: 1px solid #333;
-                        width: 200px;
-                        text-align: center;
-                        padding-top: 5px;
-                        font-size: 12px;
-                    }
-                    .watermark {
-                        position: absolute;
-                        opacity: 0.05;
-                        font-size: 100px;
-                        color: #27ae60;
-                        transform: rotate(-30deg);
-                        left: 50%;
-                        top: 50%;
-                        z-index: 0;
-                        font-weight: bold;
-                        pointer-events: none;
-                    }
-                    .status-badge {
-                        display: inline-block;
-                        padding: 3px 8px;
-                        border-radius: 20px;
-                        font-weight: bold;
-                        font-size: 12px;
-                    }
-                    .paid {
-                        background-color: #27ae60;
-                        color: white;
                     }
                 </style>
             </head>
             <body>
-                <div class="receipt-container">
-                    <div class="watermark">PAY-${payment._id.slice(-6)}</div>
-                    
-                    <div class="header">
-                        <div class="logo-container">
-                            <img src="https://redox-club.onrender.com/assets/redox-logo-white.png" class="logo">
-                        </div>
-                        <h1 class="title">إيصال دفع</h1>
-                        <p class="subtitle">${new Date().toLocaleDateString('ar-EG', { 
-                            weekday: 'long', 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric' 
-                        })}</p>
+                <div class="header">
+                    <h3>إيصال دفع</h3>
+                    <p>${new Date().toLocaleDateString('ar-EG')}</p>
+                </div>
+                
+                <div class="receipt-info">
+                    <div>
+                        <span>اسم الطالب:</span>
+                        <span>${payment.student?.name || 'غير معروف'}</span>
                     </div>
-                    
-                    <div class="receipt-details">
-                        <div class="detail-row">
-                            <span class="detail-label">رقم الإيصال:</span>
-                            <span class="detail-value">PAY-${payment._id.slice(-6)}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">اسم الطالب:</span>
-                            <span class="detail-value">${payment.student?.name || 'غير معروف'}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">رقم الطالب:</span>
-                            <span class="detail-value">${payment.student?.studentId || 'غير معروف'}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">الحصة:</span>
-                            <span class="detail-value">${payment.class?.name || 'غير معروف'}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">الشهر:</span>
-                            <span class="detail-value">${payment.month}</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="detail-label">تاريخ الدفع:</span>
-                            <span class="detail-value">${new Date(payment.paymentDate).toLocaleDateString('ar-EG')}</span>
-                        </div>
+                    <div>
+                        <span>الحصة:</span>
+                        <span>${payment.class?.name || 'غير معروف'}</span>
                     </div>
-                    
-                    <div class="payment-info">
-                        <div class="payment-method">
-                            <h4>طريقة الدفع</h4>
-                            <p>${payment.paymentMethod === 'cash' ? 'نقدي' : 
-                              payment.paymentMethod === 'bank' ? 'حوالة بنكية' : 
-                              'دفع إلكتروني'}</p>
-                        </div>
-                        <div class="payment-method">
-                            <h4>حالة الدفع</h4>
-                            <span class="status-badge paid">مسدد</span>
-                        </div>
+                    <div>
+                        <span>الشهر:</span>
+                        <span>${payment.month}</span>
                     </div>
-                    
-                    <div class="amount-section">
-                        <h3>المبلغ المدفوع</h3>
-                        <div class="amount">${payment.amount} دينار جزائري</div>
-                        <p>(${convertNumberToArabicWords(payment.amount)} ديناراً فقط لا غير)</p>
+                    <div>
+                        <span>المبلغ:</span>
+                        <span>${payment.amount} د.ك</span>
                     </div>
-                    
-                    <div class="signature">
-                        <div class="signature-line">توقيع المسؤول</div>
-                        <div class="signature-line">توقيع ولي الأمر</div>
-                    </div>
-                    
-                    <div class="footer">
-                        <p>شكراً لدفعكم في الموعد المحدد</p>
-                        <p>للاستفسار: 1234567890 - info@school.com</p>
-                    </div>
+                </div>
+                
+                <div class="footer">
+                    <p>شكراً لكم</p>
+                    <p>${new Date().toLocaleTimeString('ar-EG')}</p>
                 </div>
                 
                 <script>
@@ -2659,114 +2529,60 @@ window.deleteCard = async function(cardId) {
 
 // Handle RFID cards
 socket.on('student-detected', async (data) => {
-    
-    const rfidResult = document.getElementById('rfid-result');
-    const student = data.student;
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     try {
+        const rfidResult = document.getElementById('rfid-result');
+        const student = data.student;
+        
+        if (!student) {
+            rfidResult.innerHTML = `
+                <div class="alert alert-warning">
+                    <h4>بطاقة غير معروفة</h4>
+                    <p>UID: ${data.card?.uid || 'غير معروف'}</p>
+                    <button class="btn btn-primary" onclick="showAssignCardModal('${data.card.uid}')">
+                        تعيين البطاقة لطالب
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        // Show student info
+        rfidResult.innerHTML = `
+            <div class="card">
+                <div class="card-body">
+                    <h4>${student.name}</h4>
+                    <p>رقم الطالب: ${student.studentId}</p>
+                    <!-- Add more student details -->
+                </div>
+            </div>
+        `;
+
+        // Handle attendance if class is ongoing
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const response = await fetch(`/api/live-classes?status=ongoing&date=${today.toISOString()}`, {
-        headers: getAuthHeaders()
+            headers: getAuthHeaders()
         });
         
         if (response.ok) {
-        const liveClasses = await response.json();
-        
-        if (liveClasses.length > 0) {
-            // Show attendance prompt
-            const { value: accept } = await Swal.fire({
-            title: 'تسجيل الحضور',
-            html: `
-                <p>تم الكشف عن الطالب <strong>${data.student.name}</strong></p>
-                <p>الحصة الجارية: <strong>${liveClasses[0].class.name}</strong></p>
-                <p>هل تريد تسجيل الحضور؟</p>
-            `,
-            showCancelButton: true,
-            confirmButtonText: 'نعم',
-            cancelButtonText: 'لا',
-            focusConfirm: false
-            });
-            
-            if (accept) {
-            await handleRFIDAttendance(data.card.uid);
+            const liveClasses = await response.json();
+            if (liveClasses.length > 0) {
+                const { value: accept } = await Swal.fire({
+                    title: 'تسجيل الحضور',
+                    html: `تم الكشف عن الطالب <strong>${student.name}</strong>`,
+                    showCancelButton: true,
+                    confirmButtonText: 'تسجيل الحضور',
+                    cancelButtonText: 'إلغاء'
+                });
+                
+                if (accept) {
+                    await handleRFIDAttendance(data.card.uid);
+                }
             }
         }
-        }
     } catch (err) {
-        console.error('Error checking live classes:', err);
+        console.error('Error handling student detection:', err);
     }
-    rfidResult.innerHTML = `
-    <div class="card w-100 shadow-sm">
-        <div class="card-body text-center">
-            <img src="https://ui-avatars.com/api/?name=${encodeURIComponent(student.name)}&background=random&size=100" 
-                class="student-photo mb-3 rounded-circle border border-3 border-primary">
-            <h4 class="mb-2">${student.name}</h4>
-            <p class="text-muted mb-3">رقم الطالب: ${student.studentId}</p>
-            
-            <div class="student-details bg-light p-3 rounded mb-4">
-                <div class="d-flex justify-content-between mb-2">
-                    <span class="fw-semibold">ولي الأمر:</span>
-                    <span>${student.parentName || 'غير مسجل'}</span>
-                </div>
-                <div class="d-flex justify-content-between">
-                    <span class="fw-semibold">الهاتف:</span>
-                    <span>${student.parentPhone || 'غير مسجل'}</span>
-                </div>
-            </div>
-            
-            <h5 class="mb-3">الحصص المسجل بها:</h5>
-            <ul class="list-group mb-4">
-                ${data.classes.map(cls => `
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        ${cls.name} (${cls.subject})
-                        <span class="badge bg-primary rounded-pill">${cls.price} د.ك</span>
-                    </li>
-                `).join('')}
-            </ul>
-            
-            <h5 class="mb-3">حالة المدفوعات:</h5>
-            <div class="table-responsive">
-                <table class="table table-striped table-hover">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>الشهر</th>
-                            <th>الحصة</th>
-                            <th>المبلغ</th>
-                            <th>الحالة</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${data.payments.map(payment => `
-                            <tr class="${payment.status === 'paid' ? 'table-success' : 
-                                        payment.status === 'pending' ? 'table-warning' : 'table-danger'}">
-                                <td>${payment.month}</td>
-                                <td>${payment.class.name}</td>
-                                <td>${payment.amount} د.ك</td>
-                                <td>
-                                    <span class="badge ${payment.status === 'paid' ? 'bg-success' : 
-                                                        payment.status === 'pending' ? 'bg-warning' : 'bg-danger'}">
-                                        ${payment.status === 'paid' ? 'مسدد' : 
-                                        payment.status === 'pending' ? 'قيد الانتظار' : 'متأخر'}
-                                    </span>
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    `;            
-    // Add to activity log
-    const activityItem = document.createElement('li');
-    activityItem.className = 'list-group-item';
-    activityItem.innerHTML = `
-        <div class="d-flex justify-content-between">
-            <span>تم الكشف عن الطالب ${student.name}</span>
-            <small class="text-muted">${new Date().toLocaleTimeString('ar-EG')}</small>
-        </div>
-    `;
-    document.getElementById('recentActivity').prepend(activityItem);
 });
 
 
@@ -3063,29 +2879,52 @@ Swal.fire('خطأ', 'حدث خطأ أثناء جلب تفاصيل الحصة', '
 }
 
 async function startLiveClass(liveClassId) {
-try {
-const response = await fetch(`/api/live-classes/${liveClassId}`, {
-method: 'PUT',
-headers: getAuthHeaders(),
-body: JSON.stringify({ status: 'ongoing' })
-});
+    try {
+        const response = await fetch(`/api/live-classes/${liveClassId}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ status: 'ongoing' })
+        });
 
-if (response.status === 401) {
-logout();
-return;
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to start class');
+        }
+
+        Swal.fire('نجاح', 'تم بدء الحصة بنجاح', 'success');
+        loadLiveClasses();
+    } catch (err) {
+        console.error('Error starting live class:', err);
+        Swal.fire('خطأ', err.message || 'حدث خطأ أثناء بدء الحصة', 'error');
+    }
 }
 
-if (response.ok) {
-Swal.fire('نجاح', 'تم بدء الحصة بنجاح', 'success');
-loadLiveClasses();
-} else {
-const error = await response.json();
-Swal.fire('خطأ', error.error, 'error');
-}
-} catch (err) {
-console.error('Error:', err);
-Swal.fire('خطأ', 'حدث خطأ أثناء بدء الحصة', 'error');
-}
+async function endLiveClass(liveClassId) {
+    try {
+        const now = new Date();
+        const currentTime = now.getHours().toString().padStart(2, '0') + ':' + 
+                          now.getMinutes().toString().padStart(2, '0');
+
+        const response = await fetch(`/api/live-classes/${liveClassId}`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ 
+                status: 'completed',
+                endTime: currentTime
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to end class');
+        }
+
+        Swal.fire('نجاح', 'تم إنهاء الحصة بنجاح', 'success');
+        loadLiveClasses();
+    } catch (err) {
+        console.error('Error ending live class:', err);
+        Swal.fire('خطأ', err.message || 'حدث خطأ أثناء إنهاء الحصة', 'error');
+    }
 }
 
 async function endLiveClass(liveClassId) {
@@ -4512,73 +4351,57 @@ async function showCreateAccountModal(studentId = null) {
   }
   
 // Create student account
-// Function to create a student account
 async function createStudentAccount() {
     const form = document.getElementById('addStudentAccountForm');
     const formData = new FormData(form);
-  
+
     const accountData = {
-      studentId: formData.get('accountStudentSelect'),
-      username: formData.get('accountUsername').trim(),
-      password: formData.get('accountPassword'),
-      email: formData.get('accountEmail').trim()
+        studentId: formData.get('accountStudentSelect'),
+        username: formData.get('accountUsername').trim(),
+        password: formData.get('accountPassword'),
+        email: formData.get('accountEmail').trim()
     };
-  
+
     // Validation
     if (!accountData.studentId) {
-      Swal.fire('خطأ', 'يجب اختيار طالب', 'error');
-      return;
+        Swal.fire('خطأ', 'يجب اختيار طالب', 'error');
+        return;
     }
-  
+
     if (!accountData.username) {
-      Swal.fire('خطأ', 'يجب إدخال اسم المستخدم', 'error');
-      return;
+        Swal.fire('خطأ', 'يجب إدخال اسم المستخدم', 'error');
+        return;
     }
-  
+
     if (accountData.password !== formData.get('accountConfirmPassword')) {
-      Swal.fire('خطأ', 'كلمة المرور وتأكيدها غير متطابقين', 'error');
-      return;
+        Swal.fire('خطأ', 'كلمة المرور وتأكيدها غير متطابقين', 'error');
+        return;
     }
-  
+
     try {
-      const response = await fetch('/api/student-accounts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders()
-        },
-        body: JSON.stringify(accountData)
-      });
-  
-      const data = await response.json();
-  
-      if (response.ok) {
-        Swal.fire({
-          title: 'نجاح',
-          html: `
-            <p>تم إنشاء حساب الطالب بنجاح</p>
-            <div class="alert alert-info mt-3">
-              <p><strong>اسم المستخدم:</strong> ${data.account.username}</p>
-              <p><strong>الطالب:</strong> ${data.account.studentName}</p>
-              <p><strong>الرقم الجامعي:</strong> ${data.account.studentId}</p>
-            </div>
-          `,
-          icon: 'success',
-          confirmButtonText: 'تم',
-          width: '600px'
+        const response = await fetch('/api/student-accounts', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...getAuthHeaders()
+            },
+            body: JSON.stringify(accountData)
         });
-  
-        form.reset();
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'حدث خطأ أثناء إنشاء الحساب');
+        }
+
+        const data = await response.json();
+        Swal.fire('نجاح', 'تم إنشاء الحساب بنجاح', 'success');
         bootstrap.Modal.getInstance(document.getElementById('addStudentAccountModal')).hide();
         loadStudentAccounts();
-      } else {
-        throw new Error(data.error || 'حدث خطأ أثناء إنشاء الحساب');
-      }
     } catch (err) {
-      console.error('Error:', err);
-      Swal.fire('خطأ', err.message, 'error');
+        console.error('Error:', err);
+        Swal.fire('خطأ', err.message, 'error');
     }
-  }
+}
   async function showResetPasswordModal(accountId) {
     const { value: newPassword } = await Swal.fire({
       title: 'إعادة تعيين كلمة المرور',
@@ -5281,3 +5104,447 @@ console.error('Error saving account:', err);
 Swal.fire('خطأ', err.message || 'حدث خطأ أثناء حفظ الحساب', 'error');
 });
 }
+
+
+// Global variable to store the connected device
+let rfidDevice = null;
+
+// Function to request USB device access
+async function connectRFIDReader() {
+  try {
+    // Filter for STid devices (you'll need the correct vendor/product IDs)
+    const device = await navigator.usb.requestDevice({
+      filters: [
+        { vendorId: 0x0483 }, // STMicroelectronics vendor ID
+        { vendorId: 0x0403 }  // FTDI (common for USB-to-serial)
+      ]
+    });
+    
+    console.log('Device selected:', device);
+    
+    // Open the device
+    await device.open();
+    if (device.configuration === null) {
+      await device.selectConfiguration(1);
+    }
+    
+    // Claim the interface
+    await device.claimInterface(0);
+    
+    rfidDevice = device;
+    Swal.fire('Success', 'RFID reader connected successfully', 'success');
+    
+    // Start listening for RFID tags
+    startRFIDListening();
+    
+  } catch (error) {
+    console.error('Error connecting to RFID reader:', error);
+    Swal.fire('Error', 'Failed to connect to RFID reader: ' + error.message, 'error');
+  }
+}
+
+// Function to start listening for RFID tags
+async function startRFIDListening() {
+  if (!rfidDevice) return;
+  
+  try {
+    // STid readers typically use a simple serial protocol
+    // You'll need to send the correct initialization commands
+    await rfidDevice.transferOut(1, new TextEncoder().encode('\x02\x30\x31\x03')); // Example command
+    
+    // Continuously read data
+    while (rfidDevice.opened) {
+      const result = await rfidDevice.transferIn(1, 64);
+      if (result.data && result.data.byteLength > 0) {
+        const decoder = new TextDecoder();
+        const data = decoder.decode(result.data);
+        
+        // Process the RFID data (this will vary by reader model)
+        const uid = extractUIDFromData(data);
+        if (uid) {
+          handleDetectedRFID(uid);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('RFID reading error:', error);
+    if (rfidDevice) {
+      await disconnectRFIDReader();
+    }
+  }
+}
+
+// Function to extract UID from reader data
+function extractUIDFromData(data) {
+  // STid readers typically send data in format [STX][DATA][ETX][LRC]
+  // Example: "\x0212345678\x03\x2A"
+  const match = data.match(/\x02(.+?)\x03/);
+  return match ? match[1] : null;
+}
+
+// Function to disconnect the reader
+async function disconnectRFIDReader() {
+  if (rfidDevice) {
+    try {
+      await rfidDevice.releaseInterface(0);
+      await rfidDevice.close();
+      rfidDevice = null;
+      console.log('RFID reader disconnected');
+    } catch (error) {
+      console.error('Error disconnecting:', error);
+    }
+  }
+}
+
+// Modify your existing RFID handling
+function handleDetectedRFID(uid) {
+  // Clear any previous results
+  const rfidResult = document.getElementById('rfid-result');
+  
+  // Show the detected UID
+  rfidResult.innerHTML = `
+    <div class="alert alert-info">
+      <h4>Card Detected</h4>
+      <p>UID: ${uid}</p>
+      <button class="btn btn-primary" onclick="showAssignCardModal('${uid}')">
+        Assign Card to Student
+      </button>
+    </div>
+  `;
+  
+  // Check if we have an ongoing class for attendance
+  checkForOngoingClass(uid);
+}
+document.getElementById('connectRFIDBtn').addEventListener('click', function() {
+    const rfidStatus = document.getElementById('rfidStatus');
+    rfidStatus.textContent = 'Connecting...';
+    rfidStatus.className = 'badge bg-warning';
+    
+    // Simulate connection
+    setTimeout(() => {
+      rfidStatus.textContent = 'Connected';
+      rfidStatus.className = 'badge bg-success connected';
+      document.getElementById('connectRFIDBtn').disabled = true;
+      document.getElementById('disconnectRFIDBtn').disabled = false;
+      
+      // Simulate card scan
+      simulateCardScan();
+    }, 2000);
+  });
+  
+  
+  document.getElementById('disconnectRFIDBtn').addEventListener('click', function() {
+    const rfidStatus = document.getElementById('rfidStatus');
+    rfidStatus.textContent = 'Disconnected';
+    rfidStatus.className = 'badge bg-danger disconnected';
+    document.getElementById('connectRFIDBtn').disabled = false;
+    document.getElementById('disconnectRFIDBtn').disabled = true;
+    document.getElementById('rfid-result').innerHTML = '<p class="text-muted">قم بتمرير بطاقة الطالب لعرض المعلومات</p>';
+  });
+
+
+
+async function printRegistrationReceipt(studentData, amount = 600) {
+    return new Promise((resolve) => {
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+        
+        const doc = iframe.contentWindow.document;
+        
+        doc.open();
+        doc.write(`
+            <!DOCTYPE html>
+            <html lang="ar" dir="rtl">
+            <head>
+                <meta charset="UTF-8">
+                <title>إيصال تسجيل طالب</title>
+                <style>
+                    @page {
+                        size: A4;
+                        margin: 0;
+                    }
+                    body {
+                        width: 210mm;
+                        height: 297mm;
+                        margin: 0;
+                        padding: 0;
+                        font-family: 'Arial', sans-serif;
+                        color: #333;
+                        line-height: 1.6;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                    }
+                    .receipt-container {
+                        width: 150mm;
+                        height: auto;
+                        border: 2px solid #3498db;
+                        border-radius: 5px;
+                        padding: 10mm;
+                        box-sizing: border-box;
+                        position: relative;
+                        overflow: hidden;
+                        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                    }
+                    .logo-container {
+                        background-color: #000;
+                        padding: 10px;
+                        border-radius: 5px;
+                        display: inline-block;
+                        margin-bottom: 15px;
+                    }
+                    .logo {
+                        height: 40px;
+                        filter: brightness(0) invert(1);
+                        
+                    }
+                    .header {
+                        text-align: center;
+                        margin-bottom: 15px;
+                        border-bottom: 2px solid #3498db;
+                        padding-bottom: 10px;
+                    }
+                    .title {
+                        color: #2c3e50;
+                        margin: 10px 0 5px;
+                        font-size: 20px;
+                    }
+                    .subtitle {
+                        color: #7f8c8d;
+                        font-size: 12px;
+                    }
+                    .receipt-details {
+                        margin: 15px 0;
+                    }
+                    .detail-row {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 10px;
+                        padding-bottom: 6px;
+                        border-bottom: 1px dashed #ddd;
+                        font-size: 12px;
+                    }
+                    .detail-label {
+                        font-weight: bold;
+                        color: #2c3e50;
+                        width: 40%;
+                    }
+                    .detail-value {
+                        color: #34495e;
+                        width: 60%;
+                        text-align: left;
+                    }
+                    .amount-section {
+                        background-color: #f8f9fa;
+                        padding: 10px;
+                        border-radius: 5px;
+                        margin: 15px 0;
+                        text-align: center;
+                        border: 1px solid #eee;
+                    }
+                    .amount {
+                        font-size: 22px;
+                        color: #e74c3c;
+                        font-weight: bold;
+                        margin: 5px 0;
+                    }
+                    .barcode {
+                        text-align: center;
+                        margin: 15px 0;
+                        padding: 8px;
+                        background-color: #f8f9fa;
+                        border-radius: 5px;
+                    }
+                    .footer {
+                        text-align: center;
+                        margin-top: 20px;
+                        font-size: 10px;
+                        color: #7f8c8d;
+                        border-top: 2px solid #3498db;
+                        padding-top: 8px;
+                    }
+                    .signature {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-top: 30px;
+                    }
+                    .signature-line {
+                        border-top: 1px solid #333;
+                        width: 150px;
+                        text-align: center;
+                        padding-top: 5px;
+                        font-size: 10px;
+                    }
+                    .watermark {
+                        position: absolute;
+                        opacity: 0.05;
+                        font-size: 80px;
+                        color: #3498db;
+                        transform: rotate(-30deg);
+                        left: 50%;
+                        top: 50%;
+                        z-index: 0;
+                        font-weight: bold;
+                        pointer-events: none;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="receipt-container">
+                    <div class="watermark">${studentData.studentId}</div>
+                    
+                    <div class="header">
+                        <div class="logo-container">
+                            <img src="https://redoxcsl.web.app/assets/redox-icon.png" class="logo">
+                        </div>
+                        <h1 class="title">إيصال تسجيل طالب</h1>
+                        <p class="subtitle">${new Date().toLocaleDateString('ar-EG', { 
+                            weekday: 'long', 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                        })}</p>
+                    </div>
+                    
+                    <div class="receipt-details">
+                        <div class="detail-row">
+                            <span class="detail-label">رقم الإيصال:</span>
+                            <span class="detail-value">REG-${Date.now().toString().slice(-6)}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">اسم الطالب:</span>
+                            <span class="detail-value">${studentData.name}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">رقم الطالب:</span>
+                            <span class="detail-value">${studentData.studentId}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">تاريخ الميلاد:</span>
+                            <span class="detail-value">${studentData.birthDate ? new Date(studentData.birthDate).toLocaleDateString('ar-EG') : 'غير محدد'}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">ولي الأمر:</span>
+                            <span class="detail-value">${studentData.parentName || 'غير محدد'}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">هاتف ولي الأمر:</span>
+                            <span class="detail-value">${studentData.parentPhone || 'غير محدد'}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">السنة الدراسية:</span>
+                            <span class="detail-value">${getAcademicYearName(studentData.academicYear) || 'غير محدد'}</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="detail-label">تاريخ التسجيل:</span>
+                            <span class="detail-value">${new Date(studentData.registrationDate || new Date()).toLocaleDateString('ar-EG')}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="amount-section">
+                        <h3>المبلغ المدفوع</h3>
+                        <div class="amount">${amount} دينار جزائري</div>
+                        <p>(${convertNumberToArabicWords(amount)} ديناراً فقط لا غير)</p>
+                    </div>
+                    
+                    <div class="barcode">
+                        <svg id="barcode"></svg>
+                    </div>
+                    
+                    <div class="signature">
+                        <div class="signature-line">توقيع المسؤول</div>
+                        <div class="signature-line">توقيع ولي الأمر</div>
+                    </div>
+                    
+                    <div class="footer">
+                        <p>شكراً لثقتكم بنا - نتمنى لطالبنا النجاح والتوفيق</p>
+                        <p>للاستفسار: 1234567890 - info@school.com</p>
+                    </div>
+                </div>
+                
+                <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+                <script>
+                    JsBarcode("#barcode", "${studentData.studentId}", {
+                        format: "CODE128",
+                        lineColor: "#2c3e50",
+                        width: 1.5,
+                        height: 50,
+                        displayValue: true,
+                        fontSize: 12,
+                        margin: 5
+                    });
+                    
+                    window.onload = function() {
+                        setTimeout(function() {
+                            window.print();
+                            setTimeout(function() {
+                                window.close();
+                            }, 500);
+                        }, 500);
+                    };
+                </script>
+            </body>
+            </html>
+        `);
+        doc.close();
+        
+        iframe.contentWindow.onafterprint = function() {
+            document.body.removeChild(iframe);
+            resolve();
+        };
+    });
+}
+function simulateCardScan() {
+    setInterval(() => {
+      if (Math.random() > 0.7) { // 30% chance to detect a card
+        const cardUid = Math.random().toString(36).substring(2, 10).toUpperCase();
+        document.getElementById('rfid-result').innerHTML = `
+          <div class="alert alert-success">
+            <h5>تم اكتشاف بطاقة!</h5>
+            <p>رقم البطاقة: <strong>${cardUid}</strong></p>
+            <button class="btn btn-sm btn-primary mt-2">عرض معلومات الطالب</button>
+          </div>
+        `;
+      }
+    }, 3000);
+  }
+  
+  function loadSectionData(sectionId) {
+    // In a real app, this would fetch data from the server
+    console.log(`Loading data for ${sectionId} section`);
+    
+    switch(sectionId) {
+      case 'dashboard':
+        updateDashboardCounters();
+        break;
+      case 'students':
+        loadStudentsTable();
+        break;
+      case 'teachers':
+        loadTeachersTable();
+        break;
+      case 'classes':
+        loadClassesTable();
+        break;
+      case 'classrooms':
+        loadClassroomsTable();
+        break;
+      case 'payments':
+        loadPaymentsTable();
+        break;
+      case 'cards':
+        loadCardsTable();
+        break;
+      case 'student-accounts':
+        loadStudentAccountsTable();
+        break;
+      case 'registration-requests':
+        loadRegistrationRequestsTable();
+        break;
+      case 'live-classes':
+        loadLiveClassesTable();
+        break;
+    }
+  }
+  
