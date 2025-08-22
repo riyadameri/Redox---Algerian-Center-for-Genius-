@@ -349,62 +349,41 @@
                         <div id="dashboard" class="content-section active">
                             <h2 class="mb-4"><i class="bi bi-speedometer2 me-2"></i>لوحة التحكم</h2>
 
-                            <div id="card-scanner" class="content-section active">
-                                <div class="card-scanner-section">
-                                    <div class="scanner-container">
-                                        <h2 class="text-center mb-4">
-                                            <i class="bi bi-credit-card text-primary me-2"></i>
-                                            قارئ البطاقات
-                                        </h2>
-                                        <div class="mb-4">
-                                            <label for="cardInput" class="form-label">رقم البطاقة (سيتم ملؤه تلقائيًا)</label>
-                                            <input type="text" class="form-control scanner-input text-center" 
-                                                   id="cardInput" placeholder="امرر البطاقة هنا..." autofocus>
-                                            <div class="form-text">استخدم قارئ البطاقات لمسح رقم الطالب</div>
-                                        </div>
-                                        
-                                        <!-- معلومات الطالب (ستظهر بعد المسح) -->
-                                        <div id="studentInfo" class="student-info-card card">
-                                            <div class="card-body">
-                                                <div class="text-center mb-4">
-                                                    <img src="https://ui-avatars.com/api/?name=طالب&background=3498db&color=fff" 
-                                                         class="student-photo rounded-circle mb-3">
-                                                    <h3 id="studentName">اسم الطالب</h3>
-                                                    <p class="text-muted">رقم الطالب: <span id="studentId">12345</span></p>
-                                                </div>
-                                                
-                                                <div class="row mb-4">
-                                                    <div class="col-md-6">
-                                                        <h5>معلومات الطالب</h5>
-                                                        <p><strong>ولي الأمر:</strong> <span id="parentName">أبو الطالب</span></p>
-                                                        <p><strong>هاتف ولي الأمر:</strong> <span id="parentPhone">0512345678</span></p>
-                                                        <p><strong>الصف الدراسي:</strong> <span id="academicYear">الثالثة ابتدائي</span></p>
-                                                    </div>
-                                                    <div class="col-md-6">
-                                                        <h5>الحالة المالية</h5>
-                                                        <p><strong>الحالة العامة:</strong> 
-                                                            <span id="paymentStatus" class="payment-status payment-paid">مسدد</span>
-                                                        </p>
-                                                        <p><strong>إجمالي المديونية:</strong> <span id="totalDue">0 د.ك</span></p>
-                                                    </div>
-                                                </div>
-                                                
-                                                <h5>الحصص المسجل بها</h5>
-                                                <div id="classesList" class="classes-list mb-3">
-                                                    <!-- سيتم ملؤها بالبيانات -->
-                                                </div>
-                                                
-                                                <div class="d-grid gap-2">
-                                                    <button class="btn btn-primary" onclick="markAttendance()">
-                                                        <i class="bi bi-check-circle me-1"></i> تسجيل الحضور
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
+
+                            <!-- RFID Scanner Interface - Fixed at top -->
+<div id="global-rfid-scanner" class="card mb-4" style="display: none;">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="bi bi-credit-card me-2"></i>قارئ البطاقات</h6>
+        <div>
+            <span id="rfidStatus" class="badge bg-danger">غير متصل</span>
+            <button class="btn btn-sm btn-outline-light ms-2" onclick="toggleRFIDScanner()">
+                <i class="bi bi-x"></i>
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="globalCardInput" class="form-label">رقم البطاقة:</label>
+                    <input type="text" class="form-control" id="globalCardInput" 
+                           placeholder="امرر البطاقة هنا..." autocomplete="off">
+                    <div class="form-text">يمكنك إدخال رقم البطاقة يدوياً أو استخدام قارئ البطاقات</div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div id="global-rfid-result" class="p-3">
+                    <p class="text-muted text-center">سيظهر هنا نتيجة مسح البطاقة</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Floating RFID Button -->
+<button id="rfid-scanner-btn" class="btn btn-primary floating-btn" onclick="toggleRFIDScanner()">
+    <i class="bi bi-credit-card"></i>
+</button>
                             <div class="row mt-4">
                                 <div class="col-md-4">
                                     <div class="card text-white bg-info">
@@ -736,53 +715,112 @@
                         </div>
 
                         <!-- Gate Interface Section -->
-                        <div id="gate-interface" class="content-section">
-                            <div class="card shadow-sm">
-                                <div class="card-header bg-primary text-white">
-                                    <h5 class="mb-0"><i class="bi bi-door-open me-2"></i>واجهة المدخل</h5>
+<!-- Gate Interface Section -->
+<div id="gate-interface" class="content-section">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-door-open me-2"></i>واجهة المدخل - نظام الحضور</h5>
+            <div>
+                <span id="gateStatus" class="badge bg-success">نشط</span>
+                <span class="badge bg-info ms-2" id="currentTime">00:00:00</span>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <!-- Column 1: Scanner Input -->
+                <div class="col-md-5">
+                    <div class="gate-scanner-section p-3 dfe rounded">
+                        <h6 class="text-center mb-3"><i class="bi bi-credit-card text-primary"></i> مسح البطاقة</h6>
+                        
+                        <div class="mb-3">
+                            <label for="gateCardInput" class="form-label">رقم البطاقة:</label>
+                            <input type="text" class="form-control form-control-lg text-center" 
+                                   id="gateCardInput" placeholder="امرر البطاقة هنا..." 
+                                   autocomplete="off" autofocus>
+                            <div class="form-text">استخدم قارئ البطاقات أو اكتب الرقم يدوياً</div>
+                        </div>
+                        
+                        <div class="scanner-status text-center mt-3">
+                            <div class="spinner-border text-primary spinner-border-sm" role="status" id="gateSpinner" style="display: none;">
+                                <span class="visually-hidden">جاري المسح...</span>
+                            </div>
+                            <span id="gateScannerStatus" class="text-muted">جاهز للمسح</span>
+                        </div>
+                    </div>
+                    
+                    <div class="current-class-info mt-3 p-3  rounded">
+                        <h6><i class="bi bi-clock-history text-primary"></i> الحصة الجارية:</h6>
+                        <div id="currentClassDetails">
+                            <div class="text-center py-3">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                    <span class="visually-hidden">جاري التحميل...</span>
                                 </div>
-                                <div class="card-body">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="mb-3">
-                                                <label for="manualRFIDInput" class="form-label">مسح البطاقة يدوياً:</label>
-                                                <input type="text" class="form-control" id="manualRFIDInput" 
-                                                       placeholder="أدخل رقم البطاقة أو امسحها" autocomplete="off">
-                                                <div class="form-text">يمكنك إدخال رقم البطاقة يدوياً أو استخدام قارئ البطاقات</div>
-                                            </div>
-                                            
-                                            <div class="current-class-info p-3 bg-light rounded mb-3">
-                                                <h6>الحصة الجارية حالياً:</h6>
-                                                <div id="current-class-details">جاري التحميل...</div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="col-md-6">
-                                            <div class="gate-status p-3 rounded text-center">
-                                                <h6>حالة المدخل:</h6>
-                                                <div id="gate-status" class="status-active">
-                                                    <i class="bi bi-check-circle-fill text-success"></i>
-                                                    <span>نشط</span>
-                                                </div>
-                                            </div>
-                                            
-                                            <div class="recent-scans mt-4">
-                                                <h6>آخر عمليات المسح:</h6>
-                                                <div id="recent-scans-list" class="list-group"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="row mt-4">
-                                        <div class="col-12">
-                                            <div id="gate-rfid-result">
-                                                <p class="text-muted text-center">سيظهر هنا نتيجة مسح البطاقة</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                <span class="ms-2">جاري تحميل معلومات الحصة...</span>
                             </div>
                         </div>
+                    </div>
+                </div>
+                
+                <!-- Column 2: Student Info -->
+                <div class="col-md-7">
+                    <div class="gate-result-section">
+                        <h6 class="text-center mb-3"><i class="bi bi-person-check text-success"></i> نتيجة المسح</h6>
+                        <div id="gateRfidResult" class="text-center p-4  rounded">
+                            <div class="gate-placeholder">
+                                <i class="bi bi-credit-card-2-front text-muted" style="font-size: 3rem;"></i>
+                                <p class="text-muted mt-2">سيظهر هنا معلومات الطالب بعد مسح البطاقة</p>
+                            </div>
+                        </div>
+                        
+                        <div class="quick-actions mt-3 text-center">
+                            <button class="btn btn-outline-secondary btn-sm me-2" onclick="manualAttendance()">
+                                <i class="bi bi-pencil"></i> تسجيل يدوي
+                            </button>
+                            <button class="btn btn-outline-info btn-sm me-2" onclick="showRecentScans()">
+                                <i class="bi bi-clock-history"></i> السجلات الحديثة
+                            </button>
+                            <button class="btn btn-outline-warning btn-sm" onclick="clearGateResults()">
+                                <i class="bi bi-x-circle"></i> مسح النتائج
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Scans List -->
+                    <div class="recent-scans mt-4" id="recentScansSection" style="display: none;">
+                        <h6><i class="bi bi-list-check text-primary"></i> آخر 5 عمليات مسح:</h6>
+                        <div id="recentScansList" class="list-group mt-2"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Statistics Row -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="gate-statistics p-3 bg-light rounded">
+                        <div class="row text-center">
+                            <div class="col-md-3">
+                                <h5 id="todayScans">0</h5>
+                                <small>المسح اليوم</small>
+                            </div>
+                            <div class="col-md-3">
+                                <h5 id="presentCount">0</h5>
+                                <small>حضور اليوم</small>
+                            </div>
+                            <div class="col-md-3">
+                                <h5 id="absentCount">0</h5>
+                                <small>غياب اليوم</small>
+                            </div>
+                            <div class="col-md-3">
+                                <h5 id="lateCount">0</h5>
+                                <small>تأخير اليوم</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 
                     </div>

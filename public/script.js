@@ -106,28 +106,91 @@ function getAuthHeaders() {
 
 // Check authentication on page load
 function checkAuth() {
-  const token = localStorage.getItem('token');
-  const user = JSON.parse(localStorage.getItem('user'));
-  
-  if (token && user) {
-    currentUser = user;
-    document.getElementById('login-section').style.display = 'none';
-    document.getElementById('main-app').style.display = 'block';
-    document.getElementById('user-name').textContent = currentUser.fullName || currentUser.username;
-    document.getElementById('user-role').textContent = getRoleName(currentUser.role);
-    initApp();
-  } else {
-    document.getElementById('login-section').style.display = 'block';
-    document.getElementById('main-app').style.display = 'none';
-  }
+    const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('user'));
+    
+    if (token && user) {
+        currentUser = user;
+        document.getElementById('login-section').style.display = 'none';
+        document.getElementById('main-app').style.display = 'block';
+        document.getElementById('user-name').textContent = currentUser.fullName || currentUser.username;
+        document.getElementById('user-role').textContent = getRoleName(currentUser.role);
+        
+        // إظهار زر البطاقة العائم
+        document.getElementById('rfid-scanner-btn').style.display = 'block';
+        
+        initApp();
+    } else {
+        document.getElementById('login-section').style.display = 'block';
+        document.getElementById('main-app').style.display = 'none';
+        
+        // إخفاء زر البطاقة العائم
+        document.getElementById('rfid-scanner-btn').style.display = 'none';
+    }
 }
-
 // Initialize the application
+
+// معالجة خاصة للدااشبورد (للقارئ القديم)
+function setupDashboardRFID() {
+    const dashboardInput = document.getElementById('cardInput');
+    
+    if (dashboardInput) {
+        let dashboardBuffer = '';
+        let dashboardLastKeyTime = Date.now();
+        
+        // استمع للإدخال المباشر في الدااشبورد
+        document.addEventListener('keydown', function(event) {
+            // فقط في الدااشبورد
+            if (!document.getElementById('dashboard').classList.contains('active')) {
+                return;
+            }
+            
+            const currentTime = Date.now();
+            const key = event.key;
+            
+            // إعادة تعيين المخزن المؤقت إذا مر وقت طويل
+            if (currentTime - dashboardLastKeyTime > 100) {
+                dashboardBuffer = '';
+            }
+            
+            dashboardLastKeyTime = currentTime;
+            
+            // إذا تم الضغط على Enter، معالجة البطاقة
+            if (key === 'Enter') {
+                event.preventDefault();
+                
+                if (dashboardBuffer.length > 0) {
+                    const normalizedCardId = normalizeCardNumber(dashboardBuffer);
+                    dashboardInput.value = normalizedCardId;
+                    
+                    // معالجة البطاقة (يمكنك استدعاء الدالة المناسبة)
+                    fetchStudentData(normalizedCardId);
+                    
+                    dashboardBuffer = '';
+                }
+            } 
+            // إذا كان رقم، إضافته للمخزن المؤقت
+            else if (key >= '0' && key <= '9') {
+                dashboardBuffer += key;
+                dashboardInput.value = dashboardBuffer;
+            }
+        });
+    }
+}
 function initApp() {
+    // بدء خدمات الخلفية
+if (currentUser) {
+    startAttendanceBackgroundService();
+}
   // Load initial data
   document.getElementById('cardSearchInput').addEventListener('input', searchCards);
   createGateInterface();
   setupRFIDInputHandling();
+  initGlobalRFIDScanner();
+    
+  // تهيئة معالجة البطاقات في قسم إدارة البطاقات
+  setupCardsManagementRFID();
+  
 
   loadStudents();
   loadTeachers();
@@ -143,7 +206,10 @@ function initApp() {
 
   loadLiveClasses();
   loadDataForLiveClassModal();
-
+// في دالة initApp() أو في مستمع الأحداث للتنقل
+document.getElementById('gate-interface-link').addEventListener('click', function() {
+    initGateInterface();
+});
   document.getElementById('accountStatusFilter').addEventListener('change', loadStudentAccounts);
   document.getElementById('accountSearchInput').addEventListener('keyup', function(e) {
     if (e.key === 'Enter') {
@@ -180,6 +246,9 @@ function initApp() {
 
   // Initialize RFID input handling
   setupRFIDInputHandling();
+
+
+  
 }
 
 
@@ -3034,50 +3103,63 @@ async function endLiveClass(liveClassId) {
             })
         });
 
-        if (!response.ok) {
+        if (response.ok) {
+            // تسجيل الغائبين تلقائياً عند انتهاء الحصة
+            await autoMarkAbsentOnClassEnd(liveClassId);
+            
+            Swal.fire('نجاح', 'تم إنهاء الحصة وتسجيل الغائبين تلقائياً', 'success');
+            loadLiveClasses();
+        } else {
             const error = await response.json();
-            throw new Error(error.error || 'Failed to end class');
+            throw new Error(error.error || 'فشل في إنهاء الحصة');
         }
-
-        Swal.fire('نجاح', 'تم إنهاء الحصة بنجاح', 'success');
-        loadLiveClasses();
     } catch (err) {
         console.error('Error ending live class:', err);
         Swal.fire('خطأ', err.message || 'حدث خطأ أثناء إنهاء الحصة', 'error');
     }
 }
+// خدمة الخلفية للتحقق من انتهاء الحصص
+function startAttendanceBackgroundService() {
+    setInterval(async () => {
+        try {
+            // التحقق من الحصص المنتهية
+            const response = await fetch('/api/live-classes?status=ongoing', {
+                headers: getAuthHeaders()
+            });
+            
+            if (response.ok) {
+                const ongoingClasses = await response.json();
+                
+                for (const liveClass of ongoingClasses) {
+                    if (liveClass.endTime && checkIfClassEnded(liveClass.endTime)) {
+                        // الحصة انتهت - تسجيل الغائبين
+                        console.log('الحصة انتهت تلقائياً:', liveClass.class.name);
+                        await autoMarkAbsentOnClassEnd(liveClass._id);
+                        
+                        // تحديث حالة الحصة إلى منتهية
+                        await fetch(`/api/live-classes/${liveClass._id}`, {
+                            method: 'PUT',
+                            headers: getAuthHeaders(),
+                            body: JSON.stringify({ 
+                                status: 'completed',
+                                autoEnded: true
+                            })
+                        });
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Error in background service:', err);
+        }
+    }, 60000); // التحقق كل دقيقة
+}
 
-async function endLiveClass(liveClassId) {
-try {
-const now = new Date();
-const currentTime = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-
-const response = await fetch(`/api/live-classes/${liveClassId}`, {
-method: 'PUT',
-headers: getAuthHeaders(),
-body: JSON.stringify({ 
-status: 'completed',
-endTime: currentTime
-})
+// بدء الخدمة عند تحميل التطبيق
+document.addEventListener('DOMContentLoaded', function() {
+    if (currentUser) {
+        startAttendanceBackgroundService();
+    }
 });
-
-if (response.status === 401) {
-logout();
-return;
-}
-
-if (response.ok) {
-Swal.fire('نجاح', 'تم إنهاء الحصة بنجاح', 'success');
-loadLiveClasses();
-} else {
-const error = await response.json();
-Swal.fire('خطأ', error.error, 'error');
-}
-} catch (err) {
-console.error('Error:', err);
-Swal.fire('خطأ', 'حدث خطأ أثناء إنهاء الحصة', 'error');
-}
-}
 
 async function cancelLiveClass(liveClassId) {
 try {
@@ -6081,60 +6163,95 @@ async function handleManualRFIDScan(uid) {
     }
 }
 
-// Function to handle attendance at gate
+// Function to handle attend
+// 
+// ance at gate
+
+
+
+
+// دالة للتحقق إذا كان الطالب متأخراً
+function checkIfLate(classStartTime, maxDelayMinutes = 30) {
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes(); // الوقت الحالي بالدقائق
+    
+    // تحويل وقت بداية الحصة إلى دقائق
+    const [startHours, startMinutes] = classStartTime.split(':').map(Number);
+    const classStartMinutes = startHours * 60 + startMinutes;
+    
+    // حساب وقت التأخير المسموح
+    const allowedLateTime = classStartMinutes + maxDelayMinutes;
+    
+    return currentTime > allowedLateTime;
+}
+
+// دالة للتحقق إذا انتهت الحصة
+function checkIfClassEnded(classEndTime) {
+    if (!classEndTime) return false;
+    
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    
+    const [endHours, endMinutes] = classEndTime.split(':').map(Number);
+    const classEndMinutes = endHours * 60 + endMinutes;
+    
+    return currentTime > classEndMinutes;
+}
+
+
 async function handleGateAttendance(uid) {
     try {
-        // Find ongoing classes
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        console.log('Processing gate attendance for card:', uid);
         
-        const response = await fetch(`/api/live-classes?status=ongoing&date=${today.toISOString()}`, {
-            headers: getAuthHeaders()
-        });
-
-        if (response.status === 401) {
-            logout();
-            return;
-        }
-
-        const liveClasses = await response.json();
-        
-        if (liveClasses.length === 0) {
-            Swal.fire({
-                icon: 'info',
-                title: 'لا توجد حصص جارية',
-                text: 'لا يوجد حصص جارية حالياً لتسجيل الحضور',
-                confirmButtonText: 'حسناً'
-            });
-            return;
-        }
-
-        // Use the first ongoing class
-        const liveClass = liveClasses[0];
-        
-        // Get card data to find student
+        // الحصول على معلومات البطاقة
         const cardResponse = await fetch(`/api/cards/uid/${uid}`, {
             headers: getAuthHeaders()
         });
-        
+
+        if (cardResponse.status === 404) {
+            throw new Error('البطاقة غير معروفة');
+        }
+
         if (cardResponse.status === 401) {
             logout();
             return;
         }
-        
+
         const cardData = await cardResponse.json();
         
         if (!cardData.student) {
-            Swal.fire({
-                icon: 'error',
-                title: 'خطأ',
-                text: 'البطاقة غير مرتبطة بأي طالب',
-                confirmButtonText: 'حسناً'
-            });
+            throw new Error('البطاقة غير مرتبطة بأي طالب');
+        }
+
+        // البحث عن الحصص الجارية
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        const classesResponse = await fetch(`/api/live-classes?status=ongoing&date=${today.toISOString()}`, {
+            headers: getAuthHeaders()
+        });
+
+        if (classesResponse.status === 401) {
+            logout();
             return;
         }
 
-        // Register attendance
+        const liveClasses = await classesResponse.json();
+        
+        if (liveClasses.length === 0) {
+            await handleNoOngoingClasses(cardData.student._id);
+            return;
+        }
+
+        const liveClass = liveClasses[0];
+        
+        // تحديد حالة الحضور (حاضر/متأخر)
+        let attendanceStatus = 'present';
+        if (checkIfLate(liveClass.startTime, 30)) {
+            attendanceStatus = 'late';
+        }
+
+        // تسجيل الحضور
         const attendanceResponse = await fetch(`/api/live-classes/${liveClass._id}/attendance`, {
             method: 'POST',
             headers: {
@@ -6143,46 +6260,105 @@ async function handleGateAttendance(uid) {
             },
             body: JSON.stringify({
                 studentId: cardData.student._id,
-                status: 'present',
-                method: 'gate'
+                status: attendanceStatus,
+                method: 'gate',
+                late: attendanceStatus === 'late'
             })
         });
 
+        const responseData = await attendanceResponse.json();
+
         if (attendanceResponse.ok) {
-            const result = await attendanceResponse.json();
+            // عرض رسالة النجاح
+            const statusMessage = attendanceStatus === 'late' ? 
+                'تم تسجيل الحضور (متأخر)' : 'تم تسجيل الحضور بنجاح';
             
-            Swal.fire({
-                icon: 'success',
-                title: 'تم تسجيل الحضور',
-                html: `تم تسجيل حضور الطالب <strong>${cardData.student.name}</strong> في حصة <strong>${liveClass.class.name}</strong>`,
-                confirmButtonText: 'حسناً',
-                timer: 3000
+            const statusClass = attendanceStatus === 'late' ? 'warning' : 'success';
+            
+            const rfidResult = document.getElementById('gateRfidResult') || 
+                             document.getElementById('rfid-result');
+            
+            if (rfidResult) {
+                rfidResult.innerHTML = `
+                    <div class="alert alert-${statusClass} text-center">
+                        <h4>${statusMessage}</h4>
+                        <p>الطالب: ${cardData.student.name}</p>
+                        <p>الحصة: ${liveClass.class.name}</p>
+                        <p>الحالة: ${attendanceStatus === 'late' ? 'متأخر' : 'حاضر'}</p>
+                        <p>الوقت: ${new Date().toLocaleTimeString('ar-EG')}</p>
+                    </div>
+                `;
+            }
+            
+            // تحديث الإحصائيات
+            loadGateStatistics();
+            
+            // إضافة إلى السجلات الحديثة
+            addToRecentScans('student', {
+                student: cardData.student,
+                class: liveClass.class,
+                status: attendanceStatus,
+                timestamp: new Date().toISOString()
             });
             
-            // Update UI
-            const rfidResult = document.getElementById('rfid-result');
-            rfidResult.innerHTML = `
-                <div class="alert alert-success text-center">
-                    <h4>تم تسجيل الحضور بنجاح</h4>
-                    <p>الطالب: ${cardData.student.name}</p>
-                    <p>الحصة: ${liveClass.class.name}</p>
-                    <p>الوقت: ${new Date().toLocaleTimeString('ar-EG')}</p>
-                </div>
-            `;
         } else {
-            throw new Error('فشل في تسجيل الحضور');
+            throw new Error(responseData.error || responseData.message || 'فشل في تسجيل الحضور');
         }
+        
     } catch (err) {
         console.error('Error handling gate attendance:', err);
-        Swal.fire({
-            icon: 'error',
-            title: 'خطأ',
-            text: 'حدث خطأ أثناء تسجيل الحضور',
-            confirmButtonText: 'حسناً'
+        
+        const rfidResult = document.getElementById('gateRfidResult') || 
+                         document.getElementById('rfid-result');
+        
+        if (rfidResult) {
+            rfidResult.innerHTML = `
+                <div class="alert alert-danger text-center">
+                    <h4>خطأ في تسجيل الحضور</h4>
+                    <p>${err.message || 'حدث خطأ غير متوقع'}</p>
+                </div>
+            `;
+        }
+    }
+}
+// دالة لتسجيل الغائبين تلقائياً عند انتهاء الحصة
+async function autoMarkAbsentOnClassEnd(liveClassId) {
+    try {
+        const response = await fetch(`/api/live-classes/${liveClassId}/auto-mark-absent`, {
+            method: 'POST',
+            headers: getAuthHeaders()
         });
+
+        if (response.ok) {
+            const result = await response.json();
+            console.log('تم تسجيل الغائبين تلقائياً:', result);
+            
+            // إشعار المدير/الأستاذ
+            if (result.absentCount > 0) {
+                notifyAbsentStudents(result.absentCount, result.className);
+            }
+        }
+    } catch (err) {
+        console.error('Error in auto-marking absent:', err);
     }
 }
 
+// دالة للإشعار بالغائبين
+function notifyAbsentStudents(absentCount, className) {
+    // يمكن تطوير هذه الدالة لإرسال إشعارات عبر البريد أو الرسائل
+    console.log(`هناك ${absentCount} طالب غائب عن حصة ${className}`);
+    
+    // عرض إشعار للمستخدم
+    if (absentCount > 0) {
+        Swal.fire({
+            icon: 'info',
+            title: 'تسجيل الغائبين',
+            html: `تم تسجيل <b>${absentCount}</b> طالب كغائبين في حصة <b>${className}</b> تلقائياً`,
+            timer: 5000,
+            showConfirmButton: false
+        });
+    }
+}
   
 
 // Function to show student details
@@ -6675,22 +6851,908 @@ document.getElementById('cardInput').addEventListener('input', function(e) {
     }
 });
 // دالة مساعدة للحصول على اسم السنة الدراسية
-function getAcademicYearName(yearCode) {
-    const years = {
-        '1AS': 'الأولى ثانوي',
-        '2AS': 'الثانية ثانوي', 
-        '3AS': 'الثالثة ثانوي',
-        '1MS': 'الأولى متوسط',
-        '2MS': 'الثانية متوسط',
-        '3MS': 'الثالثة متوسط',
-        '4MS': 'الرابعة متوسط',
-        '5MS': 'الخامسة متوسط',
-        '1AP': 'الأولى ابتدائي',
-        '2AP': 'الثانية ابتدائي',
-        '3AP': 'الثالثة ابتدائي', 
-        '4AP': 'الرابعة ابتدائي',
-        '5AP': 'الخامسة ابتدائي'
-    };
+
+
+function toggleRFIDScanner() {
+    const scanner = document.getElementById('global-rfid-scanner');
+    const btn = document.getElementById('rfid-scanner-btn');
     
-    return years[yearCode] || yearCode;
+    if (scanner.style.display === 'none') {
+        scanner.style.display = 'block';
+        btn.innerHTML = '<i class="bi bi-x"></i>';
+        btn.classList.add('btn-danger');
+        btn.classList.remove('btn-primary');
+        document.getElementById('globalCardInput').focus();
+    } else {
+        scanner.style.display = 'none';
+        btn.innerHTML = '<i class="bi bi-credit-card"></i>';
+        btn.classList.remove('btn-danger');
+        btn.classList.add('btn-primary');
+    }
 }
+// تهيئة قارئ البطاقات العام
+
+
+// معالجة مدخلات البطاقة من القارئ العام// تهيئة قارئ البطاقات العام
+function initGlobalRFIDScanner() {
+    const globalCardInput = document.getElementById('globalCardInput');
+    
+    if (globalCardInput) {
+        let cardInputBuffer = '';
+        let lastKeyTime = Date.now();
+        
+        // معالجة الإدخال اليدوي والمسح التلقائي
+        globalCardInput.addEventListener('input', function(e) {
+            const cardId = e.target.value.trim();
+            if (cardId.length >= 6) {
+                const normalizedCardId = normalizeCardNumber(cardId);
+                processGlobalRFIDInput(normalizedCardId);
+            }
+        });
+        
+        // معالجة الضغط على Enter للإدخال اليدوي
+        globalCardInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const cardId = e.target.value.trim();
+                if (cardId) {
+                    const normalizedCardId = normalizeCardNumber(cardId);
+                    processGlobalRFIDInput(normalizedCardId);
+                    e.target.value = ''; // مسح الحقل بعد المعالجة
+                }
+            }
+        });
+        
+        // محاكاة قارئ البطاقات (الاستماع للإدخال السريع)
+        document.addEventListener('keydown', function(event) {
+            // تجاهل إذا كان المستخدم يكتب في حقل آخر
+            if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+                return;
+            }
+            
+            const currentTime = Date.now();
+            const key = event.key;
+            
+            // إعادة تعيين المخزن المؤقت إذا مر وقت طويل منذ آخر ضغطة
+            if (currentTime - lastKeyTime > 100) {
+                cardInputBuffer = '';
+            }
+            
+            lastKeyTime = currentTime;
+            
+            // إذا تم الضغط على Enter، معالجة البطاقة
+            if (key === 'Enter') {
+                event.preventDefault();
+                
+                if (cardInputBuffer.length > 0) {
+                    const normalizedCardId = normalizeCardNumber(cardInputBuffer);
+                    processGlobalRFIDInput(normalizedCardId);
+                    cardInputBuffer = '';
+                    
+                    // تحديث واجهة المستخدم
+                    globalCardInput.value = normalizedCardId;
+                    setTimeout(() => {
+                        globalCardInput.value = '';
+                    }, 1000);
+                }
+            } 
+            // إذا كان رقم، إضافته للمخزن المؤقت
+            else if (key >= '0' && key <= '9') {
+                cardInputBuffer += key;
+                globalCardInput.value = cardInputBuffer;
+            }
+        });
+    }
+    
+    // إظهار زر البطاقة العائم دائماً
+    document.getElementById('rfid-scanner-btn').style.display = 'block';
+
+}
+// معالجة خاصة لقسم إدارة البطاقات (للقارئ الجديد)
+function setupCardsManagementRFID() {
+    const cardUidInput = document.getElementById('cardUid');
+    
+    if (cardUidInput) {
+        let cardsBuffer = '';
+        let cardsLastKeyTime = Date.now();
+        
+        // استمع للإدخال المباشر في قسم البطاقات
+        document.addEventListener('keydown', function(event) {
+            // فقط في قسم البطاقات
+            if (!document.getElementById('cards').classList.contains('active')) {
+                return;
+            }
+            
+            const currentTime = Date.now();
+            const key = event.key;
+            
+            // إعادة تعيين المخزن المؤقت إذا مر وقت طويل
+            if (currentTime - cardsLastKeyTime > 100) {
+                cardsBuffer = '';
+            }
+            
+            cardsLastKeyTime = currentTime;
+            
+            // إذا تم الضغط على Enter، معالجة البطاقة
+            if (key === 'Enter') {
+                event.preventDefault();
+                
+                if (cardsBuffer.length > 0) {
+                    // في قسم البطاقات، نريد الرقم بالكامل (التنسيق الجديد)
+                    cardUidInput.value = cardsBuffer;
+                    cardsBuffer = '';
+                    
+                    // يمكنك أيضاً معالجته تلقائياً إذا أردت
+                    // processCardsManagementRFID(cardsBuffer);
+                }
+            } 
+            // إذا كان رقم، إضافته للمخزن المؤقت
+            else if (key >= '0' && key <= '9') {
+                cardsBuffer += key;
+            }
+        });
+    }
+}
+// معالجة مدخلات البطاقة من القارئ العام
+async function processGlobalRFIDInput(cardUid) {
+    try {
+        const rfidResult = document.getElementById('global-rfid-result');
+        const readerType = detectReaderType(cardUid);
+        
+        // عرض حالة التحميل مع معلومات عن نوع القارئ
+        rfidResult.innerHTML = `
+            <div class="text-center">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">جاري المعالجة...</span>
+                </div>
+                <p>جاري التعرف على البطاقة: ${cardUid}</p>
+                <small class="text-muted">نوع القارئ: ${readerType === 'new_reader' ? 'الجديد' : 'القديم'}</small>
+            </div>
+        `;
+
+        // تحديث حالة RFID
+        const rfidStatus = document.getElementById('rfidStatus');
+        rfidStatus.className = 'badge bg-success';
+        rfidStatus.textContent = 'متصل';
+
+        // البحث عن البطاقة في النظام باستخدام الرقم المعياري
+        const response = await fetch(`/api/cards/uid/${cardUid}`, {
+            headers: getAuthHeaders()
+        });
+
+        if (response.status === 404) {
+            // بطاقة غير معروفة
+            rfidResult.innerHTML = `
+                <div class="alert alert-warning">
+                    <h6>بطاقة غير معروفة</h6>
+                    <p>رقم البطاقة: ${cardUid}</p>
+                    <p><small>التنسيق: ${readerType === 'new_reader' ? 'جديد' : 'قديم'}</small></p>
+                    <button class="btn btn-sm btn-primary" onclick="showAssignCardModal('${cardUid}')">
+                        تعيين البطاقة لطالب
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        if (response.status === 401) {
+            logout();
+            return;
+        }
+
+        const cardData = await response.json();
+        
+        if (cardData.student) {
+            // عرض معلومات الطالب
+            const studentResponse = await fetch(`/api/students/${cardData.student._id}`, {
+                headers: getAuthHeaders()
+            });
+            
+            if (studentResponse.ok) {
+                const student = await studentResponse.json();
+                
+                rfidResult.innerHTML = `
+                    <div class="student-info">
+                        <h6>${student.name}</h6>
+                        <p class="mb-1">رقم الطالب: ${student.studentId}</p>
+                        <p class="mb-1">الصف: ${getAcademicYearName(student.academicYear) || 'غير محدد'}</p>
+                        <p class="mb-1"><small>تم المسح بـ: ${readerType === 'new_reader' ? 'القارئ الجديد' : 'القارئ القديم'}</small></p>
+                        <div class="mt-2">
+                            <button class="btn btn-sm btn-info me-1" onclick="showStudentDetails('${student._id}')">
+                                <i class="bi bi-person"></i>
+                            </button>
+                            <button class="btn btn-sm btn-success" onclick="handleGlobalAttendance('${cardUid}')">
+                                <i class="bi bi-check-circle"></i> حضور
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+    } catch (err) {
+        console.error('Error processing RFID:', err);
+        const rfidResult = document.getElementById('global-rfid-result');
+        rfidResult.innerHTML = `
+            <div class="alert alert-danger">
+                <h6>خطأ في المعالجة</h6>
+                <p>حدث خطأ أثناء معالجة البطاقة</p>
+            </div>
+        `;
+    }
+}
+
+// معالجة الحضور من الواجهة العامة
+async function handleGlobalAttendance(cardUid) {
+    try {
+        // الحصول على معلومات البطاقة أولاً
+        const cardResponse = await fetch(`/api/cards/uid/${cardUid}`, {
+            headers: getAuthHeaders()
+        });
+
+        if (cardResponse.status !== 200) {
+            throw new Error('البطاقة غير معروفة');
+        }
+
+        const cardData = await cardResponse.json();
+        
+        if (!cardData.student) {
+            throw new Error('البطاقة غير مرتبطة بأي طالب');
+        }
+
+        // البحث عن الحصص الجارية
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        const classesResponse = await fetch(`/api/live-classes?status=ongoing&date=${today.toISOString()}`, {
+            headers: getAuthHeaders()
+        });
+
+        if (classesResponse.status === 401) {
+            logout();
+            return;
+        }
+
+        const liveClasses = await classesResponse.json();
+        
+        if (liveClasses.length === 0) {
+            // إذا لم توجد حصص جارية، اعرض خيارات للحصص المجدولة
+            await handleNoOngoingClasses(cardData.student._id);
+            return;
+        }
+
+        // استخدام أول حصة جارية
+        const liveClass = liveClasses[0];
+        
+        // تسجيل الحضور
+        const attendanceResponse = await fetch(`/api/live-classes/${liveClass._id}/attendance`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...getAuthHeaders()
+            },
+            body: JSON.stringify({
+                studentId: cardData.student._id,
+                status: 'present',
+                method: 'rfid'
+            })
+        });
+
+        if (attendanceResponse.ok) {
+            const result = await attendanceResponse.json();
+            
+            // عرض رسالة النجاح
+            const rfidResult = document.getElementById('global-rfid-result');
+            rfidResult.innerHTML = `
+                <div class="alert alert-success">
+                    <h6>تم تسجيل الحضور</h6>
+                    <p>الطالب: ${cardData.student.name}</p>
+                    <p>الحصة: ${liveClass.class.name}</p>
+                    <p>الوقت: ${new Date().toLocaleTimeString('ar-EG')}</p>
+                </div>
+            `;
+            
+            // إعادة تعيين حقل الإدخال بعد 3 ثوان
+            setTimeout(() => {
+                document.getElementById('globalCardInput').value = '';
+            }, 3000);
+            
+        } else {
+            const error = await attendanceResponse.json();
+            throw new Error(error.error || 'فشل في تسجيل الحضور');
+        }
+        
+    } catch (err) {
+        console.error('Error handling attendance:', err);
+        Swal.fire({
+            icon: 'error',
+            title: 'خطأ',
+            text: err.message || 'حدث خطأ أثناء تسجيل الحضور',
+            confirmButtonText: 'حسناً'
+        });
+    }
+}
+
+// التعامل مع حالة عدم وجود حصص جارية
+async function handleNoOngoingClasses(studentId) {
+    // عرض خيار للحصص المجدولة اليوم
+    const today = new Date().toISOString().split('T')[0];
+    const response = await fetch(`/api/live-classes?date=${today}`, {
+        headers: getAuthHeaders()
+    });
+
+    if (response.ok) {
+        const classes = await response.json();
+        
+        if (classes.length > 0) {
+            const { value: classId } = await Swal.fire({
+                title: 'لا توجد حصص جارية',
+                text: 'اختر حصة لتسجيل الحضور فيها:',
+                input: 'select',
+                inputOptions: classes.reduce((options, cls) => {
+                    options[cls._id] = `${cls.class.name} (${cls.startTime})`;
+                    return options;
+                }, {}),
+                showCancelButton: true,
+                confirmButtonText: 'تسجيل الحضور',
+                cancelButtonText: 'إلغاء'
+            });
+
+            if (classId) {
+                // تسجيل الحضور في الحصة المحددة
+                const attendanceResponse = await fetch(`/api/live-classes/${classId}/attendance`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...getAuthHeaders()
+                    },
+                    body: JSON.stringify({
+                        studentId: studentId,
+                        status: 'present',
+                        method: 'manual'
+                    })
+                });
+
+                if (attendanceResponse.ok) {
+                    Swal.fire('نجاح', 'تم تسجيل الحضور بنجاح', 'success');
+                } else {
+                    throw new Error('فشل في تسجيل الحضور');
+                }
+            }
+        } else {
+            Swal.fire({
+                icon: 'info',
+                title: 'لا توجد حصص',
+                text: 'لا توجد حصص مجدولة اليوم',
+                confirmButtonText: 'حسناً'
+            });
+        }
+    }
+}
+// دالة لتحويل التنسيق القديم إلى الجديد والعكس
+function normalizeCardNumber(cardNumber) {
+    if (!cardNumber) return '';
+    
+    // إزالة أي أحرف غير رقمية
+    const cleanNumber = cardNumber.replace(/\D/g, '');
+    
+    // إذا كان الرقم يحتوي على أصفار متكررة (التنسيق الجديد)
+    if (cleanNumber.match(/^0{6,}/)) {
+        // هذا هو التنسيق الجديد: 000000000555333222888777000999
+        // نريد استخراج الأرقام الفعلية (إزالة الأصفار الزائدة)
+        return cleanNumber.replace(/^0+/, '');
+    }
+    
+    // إذا كان الرقم قصيراً (التنسيق القديم)
+    if (cleanNumber.length <= 12) {
+        // هذا هو التنسيق القديم: 0005328709
+        return cleanNumber;
+    }
+    
+    // إذا لم يتطابق مع أي من التنسيقين، نعيد الرقم كما هو
+    return cleanNumber;
+}
+
+// دالة للكشف عن نوع القارئ بناءً على التنسيق
+function detectReaderType(cardNumber) {
+    const cleanNumber = cardNumber.replace(/\D/g, '');
+    
+    if (cleanNumber.match(/^0{6,}/)) {
+        return 'new_reader'; // القارئ الجديد
+    } else if (cleanNumber.length <= 12) {
+        return 'old_reader'; // القارئ القديم
+    } else {
+        return 'unknown'; // نوع غير معروف
+    }
+}
+
+
+
+
+
+
+
+
+
+// تهيئة واجهة المدخل
+function initGateInterface() {
+    // تحديث الوقت الحالي
+    updateCurrentTime();
+    setInterval(updateCurrentTime, 1000);
+    
+    // تهيئة حقل إدخال البطاقة
+    const gateCardInput = document.getElementById('gateCardInput');
+    if (gateCardInput) {
+        setupGateCardInput(gateCardInput);
+    }
+    
+    // تحميل معلومات الحصة الجارية
+    loadCurrentClassInfo();
+    
+    // تحميل الإحصائيات
+    loadGateStatistics();
+    
+    // تحميل السجلات الحديثة
+    loadRecentScans();
+}
+
+// تحديث الوقت الحالي
+function updateCurrentTime() {
+    const now = new Date();
+    const timeString = now.toLocaleTimeString('ar-EG');
+    const dateString = now.toLocaleDateString('ar-EG', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    
+    const timeElement = document.getElementById('currentTime');
+    if (timeElement) {
+        timeElement.innerHTML = `<i class="bi bi-clock"></i> ${timeString}`;
+    }
+}
+
+// تهيئة حقل إدخال البطاقة للبوابة
+function setupGateCardInput(inputElement) {
+    let gateBuffer = '';
+    let gateLastKeyTime = Date.now();
+    
+    // معالجة الإدخال التلقائي
+    inputElement.addEventListener('input', function(e) {
+        const cardId = e.target.value.trim();
+        if (cardId.length >= 6) {
+            processGateCard(cardId);
+        }
+    });
+    
+    // معالجة الضغط على Enter
+    inputElement.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const cardId = e.target.value.trim();
+            if (cardId) {
+                processGateCard(cardId);
+                e.target.value = '';
+            }
+        }
+    });
+    
+    // الاستماع للإدخال المباشر من القارئ
+    document.addEventListener('keydown', function(event) {
+        // فقط في واجهة المدخل
+        if (!document.getElementById('gate-interface').classList.contains('active')) {
+            return;
+        }
+        
+        // تجاهل إذا كان المستخدم يكتب في حقل آخر
+        if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+            return;
+        }
+        
+        const currentTime = Date.now();
+        const key = event.key;
+        
+        // إعادة تعيين المخزن المؤقت إذا مر وقت طويل
+        if (currentTime - gateLastKeyTime > 100) {
+            gateBuffer = '';
+        }
+        
+        gateLastKeyTime = currentTime;
+        
+        // إذا تم الضغط على Enter، معالجة البطاقة
+        if (key === 'Enter') {
+            event.preventDefault();
+            
+            if (gateBuffer.length > 0) {
+                const normalizedCardId = normalizeCardNumber(gateBuffer);
+                processGateCard(normalizedCardId);
+                gateBuffer = '';
+                inputElement.value = '';
+            }
+        } 
+        // إذا كان رقم، إضافته للمخزن المؤقت
+        else if (key >= '0' && key <= '9') {
+            gateBuffer += key;
+            inputElement.value = gateBuffer;
+            
+            // تحديث حالة الماسح
+            updateScannerStatus('جاري المسح...');
+        }
+    });
+}
+
+// معالجة بطاقة البوابة
+async function processGateCard(cardUid) {
+    try {
+        // عرض حالة التحميل
+        updateScannerStatus('جاري التعرف على البطاقة...');
+        showGateSpinner(true);
+        
+        const normalizedCardId = normalizeCardNumber(cardUid);
+        const readerType = detectReaderType(cardUid);
+        
+        // البحث عن البطاقة في النظام
+        const response = await fetch(`/api/cards/uid/${normalizedCardId}`, {
+            headers: getAuthHeaders()
+        });
+
+        if (response.status === 404) {
+            // بطاقة غير معروفة
+            showGateResult('unknown', {
+                cardNumber: normalizedCardId,
+                readerType: readerType
+            });
+            return;
+        }
+
+        if (response.status === 401) {
+            logout();
+            return;
+        }
+
+        const cardData = await response.json();
+        
+        if (cardData.student) {
+            // الحصول على معلومات الطالب
+            const studentResponse = await fetch(`/api/students/${cardData.student._id}`, {
+                headers: getAuthHeaders()
+            });
+            
+            if (studentResponse.ok) {
+                const student = await studentResponse.json();
+                
+                // عرض معلومات الطالب
+                showGateResult('student', {
+                    student: student,
+                    cardNumber: normalizedCardId,
+                    readerType: readerType
+                });
+                
+                // محاولة تسجيل الحضور تلقائياً
+                setTimeout(async () => {
+                    try {
+                        // التحقق أولاً إذا كان الحضور مسجلاً مسبقاً
+                        const today = new Date().toISOString().split('T')[0];
+                        const attendanceCheck = await fetch(`/api/attendance/check?student=${cardData.student._id}&date=${today}`, {
+                            headers: getAuthHeaders()
+                        });
+                        
+                        if (attendanceCheck.ok) {
+                            const checkData = await attendanceCheck.json();
+                            if (checkData.exists) {
+                                // الحضور مسجل مسبقاً
+                                showGateResult('already_registered', {
+                                    student: student,
+                                    class: checkData.class,
+                                    timestamp: checkData.timestamp
+                                });
+                                return;
+                            }
+                        }
+                        
+                        // إذا لم يكن مسجلاً، تابع مع handleGateAttendance
+                        await handleGateAttendance(normalizedCardId);
+                    } catch (err) {
+                        console.error('Error in attendance pre-check:', err);
+                        await handleGateAttendance(normalizedCardId);
+                    }
+                }, 1000);
+            }
+        }
+    } catch (err) {
+        console.error('Error processing gate card:', err);
+        showGateResult('error', {
+            error: err.message
+        });
+    } finally {
+        showGateSpinner(false);
+        updateScannerStatus('جاهز للمسح');
+    }
+}
+
+// عرض نتيجة المسح في البوابة
+function showGateResult(type, data) {
+    const resultElement = document.getElementById('gateRfidResult');
+    
+    switch (type) {
+        case 'student':
+            resultElement.innerHTML = `
+                <div class="scan-success p-3">
+                    <div class="text-center">
+                        <i class="bi bi-check-circle-fill text-success" style="font-size: 2rem;"></i>
+                        <h5 class="mt-2">تم التعرف على الطالب</h5>
+                    </div>
+                    <div class="student-details mt-3">
+                        <p><strong>الاسم:</strong> ${data.student.name}</p>
+                        <p><strong>رقم الطالب:</strong> ${data.student.studentId}</p>
+                        <p><strong>الصف:</strong> ${getAcademicYearName(data.student.academicYear) || 'غير محدد'}</p>
+                        <p><strong>نوع القارئ:</strong> ${data.readerType === 'new_reader' ? 'جديد' : 'قديم'}</p>
+                    </div>
+                    <div class="text-center mt-3">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                            <span class="visually-hidden">جاري تسجيل الحضور...</span>
+                        </div>
+                        <span class="ms-2">جاري تسجيل الحضور...</span>
+                    </div>
+                </div>
+            `;
+            break;
+            
+        case 'unknown':
+            resultElement.innerHTML = `
+                <div class="alert alert-warning">
+                    <div class="text-center">
+                        <i class="bi bi-exclamation-triangle-fill" style="font-size: 2rem;"></i>
+                        <h5 class="mt-2">بطاقة غير معروفة</h5>
+                    </div>
+                    <p class="text-center">رقم البطاقة: ${data.cardNumber}</p>
+                    <div class="text-center">
+                        <button class="btn btn-sm btn-primary" onclick="showAssignCardModal('${data.cardNumber}')">
+                            <i class="bi bi-link"></i> ربط البطاقة
+                        </button>
+                    </div>
+                </div>
+            `;
+            break;
+            
+        case 'error':
+            resultElement.innerHTML = `
+                <div class="alert alert-danger">
+                    <div class="text-center">
+                        <i class="bi bi-x-circle-fill" style="font-size: 2rem;"></i>
+                        <h5 class="mt-2">خطأ في المعالجة</h5>
+                    </div>
+                    <p class="text-center">${data.error || 'حدث خطأ غير متوقع'}</p>
+                </div>
+            `;
+            break;
+            case 'already_registered':
+                resultElement.innerHTML = `
+                    <div class="alert alert-info">
+                        <div class="text-center">
+                            <i class="bi bi-info-circle-fill" style="font-size: 2rem;"></i>
+                            <h5 class="mt-2">الحضور مسجل مسبقاً</h5>
+                        </div>
+                        <div class="student-details mt-3">
+                            <p><strong>الطالب:</strong> ${data.student.name}</p>
+                            <p><strong>الحصة:</strong> ${data.class.name}</p>
+                            <p><strong>وقت التسجيل:</strong> ${new Date(data.timestamp).toLocaleTimeString('ar-EG')}</p>
+                        </div>
+                        <div class="text-center mt-3">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="clearGateResults()">
+                                <i class="bi bi-x-circle"></i> مسح النتيجة
+                            </button>
+                        </div>
+                    </div>
+                `;
+                break;
+
+                // في دالة showGateResult، أضف حالة المتأخرين
+case 'student':
+    const statusBadge = data.status === 'late' ? 
+        '<span class="badge bg-warning">متأخر</span>' : 
+        '<span class="badge bg-success">حاضر</span>';
+    
+    resultElement.innerHTML = `
+        <div class="scan-success p-3">
+            <div class="text-center">
+                <i class="bi bi-check-circle-fill text-${data.status === 'late' ? 'warning' : 'success'}" 
+                   style="font-size: 2rem;"></i>
+                <h5 class="mt-2">${data.status === 'late' ? 'تم التسجيل (متأخر)' : 'تم التسجيل'}</h5>
+            </div>
+            <div class="student-details mt-3">
+                <p><strong>الاسم:</strong> ${data.student.name} ${statusBadge}</p>
+                <p><strong>رقم الطالب:</strong> ${data.student.studentId}</p>
+                <p><strong>الصف:</strong> ${getAcademicYearName(data.student.academicYear) || 'غير محدد'}</p>
+                <p><strong>الوقت:</strong> ${new Date().toLocaleTimeString('ar-EG')}</p>
+            </div>
+        </div>
+    `;
+    break;
+    }
+    
+    // إضافة إلى السجلات الحديثة
+    addToRecentScans(type, data);
+}
+
+// تحديث حالة الماسح
+function updateScannerStatus(status) {
+    const statusElement = document.getElementById('gateScannerStatus');
+    if (statusElement) {
+        statusElement.textContent = status;
+    }
+}
+
+// عرض/إخفاء spinner الماسح
+function showGateSpinner(show) {
+    const spinner = document.getElementById('gateSpinner');
+    if (spinner) {
+        spinner.style.display = show ? 'inline-block' : 'none';
+    }
+}
+
+// تحميل إحصائيات البوابة
+async function loadGateStatistics() {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const response = await fetch(`/api/attendance/statistics?date=${today}`, {
+            headers: getAuthHeaders()
+        });
+        
+        if (response.ok) {
+            const stats = await response.json();
+            updateGateStatistics(stats);
+        }
+    } catch (err) {
+        console.error('Error loading gate statistics:', err);
+    }
+}
+
+// تحديث إحصائيات البوابة
+function updateGateStatistics(stats) {
+    document.getElementById('todayScans').textContent = stats.totalScans || 0;
+    document.getElementById('presentCount').textContent = stats.present || 0;
+    document.getElementById('absentCount').textContent = stats.absent || 0;
+    document.getElementById('lateCount').textContent = stats.late || 0;
+}
+
+// إدارة السجلات الحديثة
+function addToRecentScans(type, data) {
+    const scans = JSON.parse(localStorage.getItem('gateRecentScans') || '[]');
+    
+    // إضافة المسح الجديد
+    scans.unshift({
+        type: type,
+        data: data,
+        timestamp: new Date().toISOString()
+    });
+    
+    // الاحتفاظ فقط بآخر 10 مسحات
+    if (scans.length > 10) {
+        scans.pop();
+    }
+    
+    localStorage.setItem('gateRecentScans', JSON.stringify(scans));
+    updateRecentScansList();
+}
+
+// تحديث قائمة السجلات الحديثة
+function updateRecentScansList() {
+    const scans = JSON.parse(localStorage.getItem('gateRecentScans') || '[]');
+    const listElement = document.getElementById('recentScansList');
+    
+    if (listElement) {
+        listElement.innerHTML = '';
+        
+        scans.forEach((scan, index) => {
+            const item = document.createElement('div');
+            item.className = 'list-group-item';
+            
+            if (scan.type === 'student') {
+                item.innerHTML = `
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <strong>${scan.data.student.name}</strong>
+                            <br>
+                            <small>${scan.data.student.studentId}</small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-success">حضور</span>
+                            <br>
+                            <small>${new Date(scan.timestamp).toLocaleTimeString('ar-EG')}</small>
+                        </div>
+                    </div>
+                `;
+            } else {
+                item.innerHTML = `
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <strong>بطاقة غير معروفة</strong>
+                            <br>
+                            <small>${scan.data.cardNumber}</small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-warning">غير معروف</span>
+                            <br>
+                            <small>${new Date(scan.timestamp).toLocaleTimeString('ar-EG')}</small>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            listElement.appendChild(item);
+        });
+    }
+}
+
+// عرض/إخفاء السجلات الحديثة
+function showRecentScans() {
+    const section = document.getElementById('recentScansSection');
+    section.style.display = section.style.display === 'none' ? 'block' : 'none';
+    updateRecentScansList();
+}
+
+// مسح النتائج
+function clearGateResults() {
+    document.getElementById('gateRfidResult').innerHTML = `
+        <div class="gate-placeholder">
+            <i class="bi bi-credit-card-2-front text-muted" style="font-size: 3rem;"></i>
+            <p class="text-muted mt-2">سيظهر هنا معلومات الطالب بعد مسح البطاقة</p>
+        </div>
+    `;
+}
+
+// تسجيل الحضور يدوياً
+function manualAttendance() {
+    Swal.fire({
+        title: 'التسجيل اليدوي',
+        html: `
+            <input type="text" id="manualStudentId" class="swal2-input" placeholder="رقم الطالب">
+            <select id="manualStatus" class="swal2-input">
+                <option value="present">حاضر</option>
+                <option value="late">متأخر</option>
+                <option value="absent">غائب</option>
+            </select>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'تسجيل',
+        cancelButtonText: 'إلغاء',
+        preConfirm: () => {
+            return {
+                studentId: document.getElementById('manualStudentId').value,
+                status: document.getElementById('manualStatus').value
+            };
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // تنفيذ التسجيل اليدوي هنا
+            console.log('Manual attendance:', result.value);
+        }
+    });
+}
+
+async function debugAttendance(studentId, classId) {
+    try {
+        console.log('Debugging attendance for:', studentId, classId);
+        
+        // التحقق من الحضور الحالي
+        const response = await fetch(`/api/attendance/check?student=${studentId}&class=${classId}&date=${new Date().toISOString().split('T')[0]}`, {
+            headers: getAuthHeaders()
+        });
+        
+        if (response.ok) {
+            const attendanceData = await response.json();
+            console.log('Attendance status:', attendanceData);
+            
+            if (attendanceData.exists) {
+                console.log('الحضور مسجل مسبقاً:', attendanceData);
+                return true;
+            }
+        }
+        return false;
+    } catch (err) {
+        console.error('Debug error:', err);
+        return false;
+    }
+}
+

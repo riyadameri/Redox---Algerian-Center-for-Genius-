@@ -1491,6 +1491,148 @@ app.get('/api/live-classes/:id', authenticate(['admin', 'secretary', 'teacher'])
   }
 });
 
+
+// Auto Mark Absent , student hows not attendance  on lesson 
+
+app.post('/api/live-classes/:id/auto-mark-absent', authenticate(['admin', 'secretary', 'teacher']), async (req, res) => {
+  try {
+    const liveClassId = req.params.id;
+    
+    // Get the live class with populated students
+    const liveClass = await LiveClass.findById(liveClassId)
+      .populate({
+        path: 'class',
+        populate: {
+          path: 'students',
+          model: 'Student'
+        }
+      })
+      .populate('attendance.student');
+
+    if (!liveClass) {
+      return res.status(404).json({ error: 'الحصة غير موجودة' });
+    }
+
+    if (liveClass.status !== 'completed') {
+      return res.status(400).json({ error: 'الحصة لم تنته بعد' });
+    }
+
+    // Get all students enrolled in this class
+    const enrolledStudents = liveClass.class.students || [];
+    
+    // Get students who have already been marked as present/late
+    const attendedStudents = liveClass.attendance.map(att => att.student._id.toString());
+    
+    // Find students who haven't attended (absent)
+    const absentStudents = enrolledStudents.filter(student => 
+      !attendedStudents.includes(student._id.toString())
+    );
+
+    // Mark absent students
+    const absentRecords = [];
+    for (const student of absentStudents) {
+      // Check if student already has an attendance record
+      const existingAttendanceIndex = liveClass.attendance.findIndex(
+        att => att.student._id.toString() === student._id.toString()
+      );
+
+      if (existingAttendanceIndex === -1) {
+        // Add absent record
+        liveClass.attendance.push({
+          student: student._id,
+          status: 'absent',
+          joinedAt: null,
+          leftAt: null
+        });
+        absentRecords.push(student.name);
+      }
+    }
+
+    // Save the updated live class
+    await liveClass.save();
+
+    // Send notifications to parents of absent students
+    if (absentRecords.length > 0) {
+      await sendAbsenceNotifications(absentStudents, liveClass);
+    }
+
+    res.json({
+      message: `تم تسجيل ${absentRecords.length} طالب كغائبين`,
+      absentStudents: absentRecords,
+      totalEnrolled: enrolledStudents.length,
+      totalAttended: attendedStudents.length,
+      totalAbsent: absentRecords.length
+    });
+
+  } catch (err) {
+    console.error('Error in auto-mark-absent:', err);
+    res.status(500).json({ error: 'حدث خطأ أثناء تسجيل الغائبين' });
+  }
+});
+
+// Helper function to send absence notifications
+async function sendAbsenceNotifications(absentStudents, liveClass) {
+  const absentStudentIds = absentStudents.map(student => student._id);
+  
+  try {
+    // Get detailed student information with parent contacts
+    const students = await Student.find({ 
+      _id: { $in: absentStudentIds } 
+    }).select('name parentPhone parentEmail');
+
+    for (const student of students) {
+      if (student.parentPhone) {
+        const smsContent = `تنبيه: الطالب ${student.name} غائب عن حصة ${liveClass.class.name} بتاريخ ${new Date(liveClass.date).toLocaleDateString('ar-EG')}`;
+        
+        try {
+          await smsGateway.send(student.parentPhone, smsContent);
+          
+          // Record the message
+          await Message.create({
+            sender: null, // System message
+            recipients: [{
+              student: student._id,
+              parentPhone: student.parentPhone
+            }],
+            class: liveClass.class._id,
+            content: smsContent,
+            messageType: 'individual',
+            status: 'sent'
+          });
+        } catch (smsErr) {
+          console.error(`Failed to send SMS to ${student.parentPhone}:`, smsErr);
+        }
+      }
+
+      if (student.parentEmail) {
+        const emailContent = `
+          <div dir="rtl">
+            <h2>تنبيه غياب</h2>
+            <p>الطالب: ${student.name}</p>
+            <p>الحصة: ${liveClass.class.name}</p>
+            <p>التاريخ: ${new Date(liveClass.date).toLocaleDateString('ar-EG')}</p>
+            <p>الوقت: ${liveClass.startTime}</p>
+            <p>نرجو التواصل مع الإدارة لمعرفة سبب الغياب</p>
+          </div>
+        `;
+
+        try {
+          await transporter.sendMail({
+            from: process.env.EMAIL_USER,
+            to: student.parentEmail,
+            subject: `غياب الطالب ${student.name}`,
+            html: emailContent
+          });
+        } catch (emailErr) {
+          console.error(`Failed to send email to ${student.parentEmail}:`, emailErr);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error sending absence notifications:', err);
+  }
+}
+
 // Enhanced attendance endpoint
 app.post('/api/live-classes/:id/attendance', authenticate(['admin', 'secretary', 'teacher']), async (req, res) => {
   try {
