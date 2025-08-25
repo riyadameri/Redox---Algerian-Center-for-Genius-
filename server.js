@@ -1030,6 +1030,8 @@ app.post('/api/attendance', authenticate(['admin', 'secretary', 'teacher']), asy
   }
 });
 
+
+
 // Cards
 app.get('/api/cards', authenticate(['admin', 'secretary']), async (req, res) => {
   try {

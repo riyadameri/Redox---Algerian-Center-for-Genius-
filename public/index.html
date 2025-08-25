@@ -500,6 +500,12 @@
                 <button type="button" class="btn btn-primary" id="saveLiveClassBtn">
                     <i class="bi bi-save me-1"></i>حفظ الحصة
                 </button>
+
+                <!-- في قسم إدارة الحصص الحية -->
+                <button class="btn btn-outline-primary btn-sm" onclick="printAttendanceSheet('${liveClass._id}')">
+                    <i class="bi bi-printer me-1"></i> طباعة وثيقة الغياب
+                </button>
+
             </div>
         </div>
     </div>
@@ -535,6 +541,7 @@
                                             <th>السنة الدراسية</th>
                                             <th>الحصص</th>
                                             <th>الإجراءات</th>
+                                            
                                         </tr>
                                     </thead>
                                     <tbody id="studentsTable"></tbody>

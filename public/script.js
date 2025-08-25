@@ -521,7 +521,7 @@ document.getElementById('show-register').addEventListener('click', function(e) {
     });
   });
   
-
+  
 // Data loading functions (students, teachers, classes, etc.)
 async function loadStudents() {
     try {
@@ -558,6 +558,13 @@ async function loadStudents() {
                     <button class="btn btn-sm btn-outline-success btn-action" onclick="showEnrollModal('${student._id}')">
                         <i class="bi bi-book"></i>
                     </button>
+                    <button class="btn btn-sm btn-outline-info btn-action" onclick="showAttendanceModal('${student._id}')">
+                        <i class="bi bi-clock-history"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-warning btn-action" onclick="printRegistrationReceipt('${student._id},600')">
+                        <i class="bi bi-cash"></i>
+                    </button>
+                    
                 </td>
             `;
             tableBody.appendChild(row);
@@ -2958,6 +2965,10 @@ ${getStatusText(liveClass.status)}
 <button class="btn btn-sm btn-outline-primary" onclick="showLiveClassDetails('${liveClass._id}')">
 <i class="bi bi-eye"></i>
 </button>
+<button class="btn btn-sm btn-outline-blue" onclick="printAttendanceSheet('${liveClass._id}')">
+<i class="bi bi-printer"></i>
+</button>
+
 ${liveClass.status === 'scheduled' ? `
 <button class="btn btn-sm btn-success" onclick="startLiveClass('${liveClass._id}')">
 <i class="bi bi-play"></i> بدء
@@ -4190,51 +4201,73 @@ Swal.fire('خطأ', 'حدث خطأ أثناء جلب تفاصيل الطلب', '
 
 // Approve registration
 async function approveRegistration(studentId) {
-try {
-const { value: formValues } = await Swal.fire({
-title: 'تأكيد قبول الطلب',
-html: `
-    <p>هل أنت متأكد من قبول طلب التسجيل هذا؟</p>
-    <div class="mb-3">
-        <label for="officialStudentId" class="form-label">الرقم الجامعي:</label>
-        <input type="text" class="form-control" id="officialStudentId" placeholder="سيتم إنشاؤه تلقائياً إذا ترك فارغاً">
-    </div>
-`,
-showCancelButton: true,
-confirmButtonText: 'نعم، قبول الطلب',
-cancelButtonText: 'إلغاء',
-preConfirm: () => {
-    return {
-        studentId: document.getElementById('officialStudentId').value
-    };
-}
-});
+    try {
+        const { value: formValues } = await Swal.fire({
+            title: 'تأكيد قبول الطلب',
+            html: `
+                <p>هل أنت متأكد من قبول طلب التسجيل هذا؟</p>
+                <div class="mb-3">
+                    <label for="officialStudentId" class="form-label">الرقم الجامعي:</label>
+                    <input type="text" class="form-control" id="officialStudentId" placeholder="سيتم إنشاؤه تلقائياً إذا ترك فارغاً">
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="printReceipt" checked>
+                    <label class="form-check-label" for="printReceipt">
+                        طباعة وصل التسجيل تلقائياً
+                    </label>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: 'نعم، قبول الطلب وطباعة الوصل',
+            cancelButtonText: 'إلغاء',
+            preConfirm: () => {
+                return {
+                    studentId: document.getElementById('officialStudentId').value,
+                    printReceipt: document.getElementById('printReceipt').checked
+                };
+            }
+        });
 
-if (formValues) {
-const response = await fetch(`/api/admin/approve-student/${studentId}`, {
-    method: 'PUT',
-    headers: getAuthHeaders(),
-    body: JSON.stringify({
-        status: 'active',
-        studentId: formValues.studentId || undefined
-    })
-});
+        if (formValues) {
+            const response = await fetch(`/api/admin/approve-student/${studentId}`, {
+                method: 'PUT',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({
+                    status: 'active',
+                    studentId: formValues.studentId || undefined
+                })
+            });
 
-if (response.ok) {
-    Swal.fire('نجاح', 'تم قبول طلب التسجيل بنجاح', 'success');
-    loadRegistrationRequests();
-    loadStudents();
-} else {
-    const error = await response.json();
-    Swal.fire('خطأ', error.error || 'حدث خطأ أثناء قبول الطلب', 'error');
-}
-}
-} catch (err) {
-console.error('Error:', err);
-Swal.fire('خطأ', 'حدث خطأ أثناء محاولة قبول الطلب', 'error');
-}
-}
+            if (response.ok) {
+                const result = await response.json();
+                
+                if (formValues.printReceipt) {
+                    // البحث عن بيانات الطالب الكاملة
+                    const studentResponse = await fetch(`/api/students/${studentId}`, {
+                        headers: getAuthHeaders()
+                    });
+                    
+                    if (studentResponse.ok) {
+                        const studentData = await studentResponse.json();
+                        await printRegistrationReceipt(studentData, 600);
+                    }
+                }
+                
+                Swal.fire('نجاح', 'تم قبول طلب التسجيل بنجاح' + (formValues.printReceipt ? ' وتمت الطباعة' : ''), 'success');
+                await printRegistrationReceipt(fetchStudentDataById(studentId), 700);
 
+                loadRegistrationRequests();
+                loadStudents();
+            } else {
+                const error = await response.json();
+                Swal.fire('خطأ', error.error || 'حدث خطأ أثناء قبول الطلب', 'error');
+            }
+        }
+    } catch (err) {
+        console.error('Error:', err);
+        Swal.fire('خطأ', 'حدث خطأ أثناء محاولة قبول الطلب', 'error');
+    }
+}
 async function rejectRegistration(studentId) {
 try {
 const { value: reason } = await Swal.fire({
@@ -6686,6 +6719,19 @@ document.getElementById('cardInput').addEventListener('input', function(e) {
     }
 });
 
+async function fetchStudentDataById(studentId) {
+    try {
+        const response = await fetch(`/api/students/${studentId}`);
+        if (!response.ok) {
+            throw new Error('خطاء في جلب البيانات');
+        }
+        const data = await response.json();
+        displayStudentData(data);
+    } catch (error) {
+        showError(error.message);
+    }
+}
+
 // دالة لجلب بيانات الطالب من API
 async function fetchStudentData(cardId) {
     try {
@@ -7756,3 +7802,324 @@ async function debugAttendance(studentId, classId) {
     }
 }
 
+
+
+
+
+/**
+ * Generates and opens a professional-looking attendance sheet in a new window for printing.
+ * This version includes a dynamic school logo, a correctly placed QR code, an attendance summary,
+ * and is styled to handle a large number of students efficiently.
+ *
+ * @param {string} liveClassId The ID of the live class to fetch data for.
+ */
+async function printAttendanceSheet(liveClassId) {
+    try {
+        // Fetch the class data from the API
+        const response = await fetch(`/api/live-classes/${liveClassId}`, {
+            headers: getAuthHeaders() // Assuming this function returns necessary auth headers
+        });
+
+        if (!response.ok) {
+            throw new Error('فشل في تحميل بيانات الحصة. الرجاء المحاولة مرة أخرى.');
+        }
+
+        const liveClass = await response.json();
+        const attendanceData = liveClass.attendance || [];
+
+        // --- Attendance Summary Calculation ---
+        const totalStudents = attendanceData.length;
+        const presentCount = attendanceData.filter(att => att.status === 'present').length;
+        const absentCount = attendanceData.filter(att => att.status === 'absent').length;
+        const lateCount = attendanceData.filter(att => att.status === 'late').length;
+
+
+        // Create the print window
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            Swal.fire('خطأ', 'فشل في فتح نافذة الطباعة. الرجاء السماح بالنوافذ المنبثقة.', 'error');
+            return;
+        }
+
+        // SVG QR Code (as provided in the original code)
+        const qrCodeSvg = `<image src="assets/redox-qr.svg" alt="QR Code">`;
+
+        // Function to get status display with icons
+        const getStatusDisplay = (status) => {
+            const icons = {
+                present: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`,
+                absent: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`,
+                late: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>`
+            };
+            switch (status) {
+                case 'present': return `<span class="status-icon status-present">${icons.present} حاضر</span>`;
+                case 'absent': return `<span class="status-icon status-absent">${icons.absent} غائب</span>`;
+                case 'late': return `<span class="status-icon status-late">${icons.late} متأخر</span>`;
+                default: return `<span>غير مسجل</span>`;
+            }
+        };
+
+        // Generate the HTML content for the attendance sheet
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html lang="ar" dir="rtl">
+            <head>
+                <meta charset="UTF-8">
+                <title>كشف حضور وغياب - ${liveClass.class.name}</title>
+                <link rel="preconnect" href="https://fonts.googleapis.com">
+                <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+                <style>
+                    :root {
+                        --primary-color: #0d6efd;
+                        --border-color: #dee2e6;
+                        --header-bg: #f8f9fa;
+                        --present-color: #198754;
+                        --absent-color: #dc3545;
+                        --late-color: #fd7e14;
+                    }
+                    body {
+                        font-family: 'Cairo', 'Arial', sans-serif;
+                        margin: 0;
+                        background-color: #f4f4f4;
+                        -webkit-print-color-adjust: exact;
+                        color-adjust: exact;
+                    }
+                    .page {
+                        background: white;
+                        width: 210mm;
+                        min-height: 297mm;
+                        margin: 10px auto;
+                        padding: 10mm;
+                        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+                        box-sizing: border-box;
+                    }
+                    .header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: flex-start;
+                        border-bottom: 3px solid var(--primary-color);
+                        padding-bottom: 10px;
+                        margin-bottom: 15px;
+                    }
+                    .header-left {
+                        display: flex;
+                        align-items: center;
+                        gap: 15px;
+                    }
+                    .school-logo {
+                        width: 60px;
+                        height: 60px;
+                    }
+                    .school-info .school-name {
+                        font-size: 22px;
+                        font-weight: 700;
+                        color: #000;
+                    }
+                    .school-info .document-title {
+                        font-size: 18px;
+                        color: #555;
+                        margin-top: 2px;
+                    }
+                    .qr-code-container {
+                        border: 1px solid var(--border-color);
+                        padding: 2px;
+                        border-radius: 4px;
+                    }
+                    .class-info-grid {
+                        display: grid;
+                        grid-template-columns: repeat(2, 1fr);
+                        gap: 10px 20px;
+                        background-color: var(--header-bg);
+                        padding: 12px;
+                        border-radius: 6px;
+                        margin-bottom: 15px;
+                        border: 1px solid var(--border-color);
+                        font-size: 14px;
+                    }
+                    .summary-grid {
+                        display: grid;
+                        grid-template-columns: repeat(4, 1fr);
+                        gap: 10px;
+                        margin-bottom: 15px;
+                        text-align: center;
+                    }
+                    .summary-box {
+                        background-color: #f8f9fa;
+                        border: 1px solid var(--border-color);
+                        border-radius: 6px;
+                        padding: 8px;
+                    }
+                    .summary-box .value { font-size: 18px; font-weight: 700; display: block; }
+                    .summary-box .label { font-size: 12px; color: #6c757d; }
+                    .summary-box.present .value { color: var(--present-color); }
+                    .summary-box.absent .value { color: var(--absent-color); }
+                    .summary-box.late .value { color: var(--late-color); }
+                    .summary-box.total .value { color: var(--primary-color); }
+                    
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        font-size: 10px; /* Reduced for more rows */
+                    }
+                    th, td {
+                        border: 1px solid var(--border-color);
+                        padding: 4px; /* Reduced for more rows */
+                        text-align: center;
+                        vertical-align: middle;
+                    }
+                    thead {
+                        background-color: #343a40;
+                        color: white;
+                        font-size: 11px;
+                        font-weight: 600;
+                    }
+                    tbody tr:nth-child(even) {
+                        background-color: var(--header-bg);
+                    }
+                    .status-icon {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 4px;
+                        font-weight: 600;
+                    }
+                    .status-icon svg { width: 12px; height: 12px; }
+                    .status-present { color: var(--present-color); }
+                    .status-absent { color: var(--absent-color); }
+                    .status-late { color: var(--late-color); }
+
+                    .signatures {
+                        margin-top: 40px;
+                        display: flex;
+                        justify-content: space-around;
+                    }
+                    .signature-block {
+                        text-align: center;
+                        font-size: 14px;
+                    }
+                    .signature-line {
+                        width: 200px;
+                        border-bottom: 1px solid #000;
+                        margin-top: 40px;
+                    }
+                    .footer {
+                        margin-top: 20px;
+                        text-align: center;
+                        font-size: 10px;
+                        color: #777;
+                        border-top: 1px solid var(--border-color);
+                        padding-top: 8px;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    }
+                    .footer .redox-logo { height: 20px; }
+
+                    .print-controls { text-align: center; margin: 20px 0; }
+                    .print-button {
+                        padding: 10px 20px;
+                        font-size: 16px; border: none; border-radius: 5px; cursor: pointer;
+                        color: white; margin: 0 5px; font-family: 'Cairo', sans-serif;
+                    }
+                    .print-btn { background-color: #198754; }
+                    .close-btn { background-color: #6c757d; }
+
+                    @media print {
+                        body { background-color: white; margin: 0; }
+                        .page { box-shadow: none; margin: 0; padding: 8mm; width: 100%; min-height: 0; }
+                        .print-controls { display: none; }
+                        thead { display: table-header-group; }
+                        tbody tr { page-break-inside: avoid; }
+                        .signatures { page-break-before: auto; }
+                        .footer { position: fixed; bottom: 8px; width: calc(100% - 16mm); }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="page">
+                    <div class="header">
+                        <div class="header-left">
+                            <img src="assets/almarkaz.svg" alt="شعار المدرسة" class="school-logo">
+                            <div class="school-info">
+                                <div class="school-name">${liveClass.class.school?.name || 'المركز الجزائري للعبقرية'}</div>
+                                <div class="document-title">كشف الحضور والغياب</div>
+                            </div>
+                        </div>
+                        <div class="qr-code-container">
+                            ${qrCodeSvg}
+                        </div>
+                    </div>
+
+                    <div class="class-info-grid">
+                        <div><strong>الحصة الدراسية:</strong> ${liveClass.class.name}</div>
+                        <div><strong>الأستاذ:</strong> ${liveClass.teacher.name}</div>
+                        <div><strong>المادة:</strong> ${liveClass.subject || 'غير محدد'}</div>
+                        <div><strong>التاريخ:</strong> ${new Date(liveClass.date).toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                    </div>
+
+                    <div class="summary-grid">
+                        <div class="summary-box total"><span class="value">${totalStudents}</span><span class="label">إجمالي الطلاب</span></div>
+                        <div class="summary-box present"><span class="value">${presentCount}</span><span class="label">حاضر</span></div>
+                        <div class="summary-box absent"><span class="value">${absentCount}</span><span class="label">غائب</span></div>
+                        <div class="summary-box late"><span class="value">${lateCount}</span><span class="label">متأخر</span></div>
+                    </div>
+
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 5%;">#</th>
+                                <th style="width: 15%;">رقم الطالب</th>
+                                <th>اسم الطالب</th>
+                                <th style="width: 15%;">الحالة</th>
+                                <th style="width: 20%;">التوقيع</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${attendanceData.length > 0 ?
+                                attendanceData.map((att, index) => `
+                                    <tr>
+                                        <td>${index + 1}</td>
+                                        <td>${att.student.studentId}</td>
+                                        <td style="text-align: right; padding-right: 10px;">${att.student.name}</td>
+                                        <td>${getStatusDisplay(att.status)}</td>
+                                        <td></td>
+                                    </tr>
+                                `).join('') :
+                                '<tr><td colspan="5">لا توجد بيانات حضور مسجلة لهذه الحصة.</td></tr>'
+                            }
+                        </tbody>
+                    </table>
+                    
+                    <div class="signatures">
+                         <div class="signature-block">
+                            <div>توقيع الأستاذ</div>
+                            <div class="signature-line"></div>
+                         </div>
+                         <div class="signature-block">
+                            <div>ختم وتوقيع الإدارة</div>
+                            <div class="signature-line"></div>
+                         </div>
+                    </div>
+
+                    <div class="footer">
+                        <span>تاريخ الطباعة: ${new Date().toLocaleString('ar-EG')}</span>
+                        <span><img src="assets/redox-icon.png" alt="Redox System" class="redox-logo"></span>
+                    </div>
+                </div>
+
+                <div class="print-controls">
+                    <button onclick="window.print()" class="print-button print-btn">طباعة الكشف</button>
+                    <button onclick="window.close()" class="print-button close-btn">إغلاق النافذة</button>
+                </div>
+            </body>
+            </html>
+        `);
+
+        printWindow.document.close();
+
+    } catch (err) {
+        console.error('Error printing attendance sheet:', err);
+        Swal.fire('خطأ', err.message || 'حدث خطأ أثناء تحضير وثيقة الغياب.', 'error');
+    }
+}
