@@ -147,6 +147,39 @@ const cardSchema = new mongoose.Schema({
   student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
   issueDate: { type: Date, default: Date.now }
 });
+// Add this schema near your other schemas
+const authorizedCardSchema = new mongoose.Schema({
+  uid: { 
+    type: String, 
+    required: true, 
+    unique: true,
+    index: true 
+  },
+  cardName: { 
+    type: String, 
+    required: true 
+  },
+  description: String,
+  issueDate: { 
+    type: Date, 
+    default: Date.now 
+  },
+  expirationDate: { 
+    type: Date, 
+    required: true 
+  },
+  active: { 
+    type: Boolean, 
+    default: true 
+  },
+  createdBy: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', 
+    required: false , 
+  },
+  notes: String
+}, { timestamps: true });
+
 
 const paymentSchema = new mongoose.Schema({
   student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
@@ -292,6 +325,7 @@ const TeacherPayment = mongoose.model('TeacherPayment', teacherPaymentSchema);
 const StaffSalary = mongoose.model('StaffSalary', staffSalarySchema);
 const Expense = mongoose.model('Expense', expenseSchema);
 const Invoice = mongoose.model('Invoice', invoiceSchema);
+const AuthorizedCard = mongoose.model('AuthorizedCard', authorizedCardSchema);
 
 
 
@@ -332,6 +366,147 @@ const Message = mongoose.model('Message', messageSchema);
 const FinancialTransaction = mongoose.model('FinancialTransaction', financialTransactionSchema);
 const StudentAccount = mongoose.model('StudentAccount', StudentsAccountsSchema);
 // RFID Reader Implementation
+
+
+
+// Authorized Cards Management
+app.get('/api/authorized-cards',  async (req, res) => {
+  try {
+    const { active, expired } = req.query;
+    const query = {};
+
+    if (active !== undefined) query.active = active === 'true';
+    if (expired === 'true') {
+      query.expirationDate = { $lt: new Date() };
+    } else if (expired === 'false') {
+      query.expirationDate = { $gte: new Date() };
+    }
+
+    const cards = await AuthorizedCard.find(query)
+      .populate('createdBy', 'username fullName')
+      .sort({ createdAt: -1 });
+    
+    res.json(cards);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/authorized-cards', async (req, res) => {
+  try {
+    const { uid, cardName, description, expirationDate, notes } = req.body;
+    
+    // Check if card already exists
+    const existingCard = await AuthorizedCard.findOne({ uid });
+    if (existingCard) {
+      return res.status(400).json({ error: 'البطاقة مسجلة مسبقاً في النظام' });
+    }
+
+    const authorizedCard = new AuthorizedCard({
+      uid,
+      cardName,
+      description,
+      expirationDate: new Date(expirationDate),
+      notes,
+    });
+
+    await authorizedCard.save();
+    
+    // Populate createdBy field for response
+    await authorizedCard.populate('createdBy', 'username fullName');
+    
+    res.status(201).json(authorizedCard);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.put('/api/authorized-cards/:id',  async (req, res) => {
+  try {
+    const { cardName, description, expirationDate, active, notes } = req.body;
+    
+    const authorizedCard = await AuthorizedCard.findByIdAndUpdate(
+      req.params.id,
+      {
+        cardName,
+        description,
+        expirationDate: expirationDate ? new Date(expirationDate) : undefined,
+        active,
+        notes
+      },
+      { new: true }
+    ).populate('createdBy', 'username fullName');
+
+    if (!authorizedCard) {
+      return res.status(404).json({ error: 'البطاقة غير موجودة' });
+    }
+
+    res.json(authorizedCard);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.delete('/api/authorized-cards/:id', async (req, res) => {
+  try {
+    const authorizedCard = await AuthorizedCard.findByIdAndDelete(req.params.id);
+    
+    if (!authorizedCard) {
+      return res.status(404).json({ error: 'البطاقة غير موجودة' });
+    }
+
+    res.json({ message: 'تم حذف البطاقة بنجاح' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Check if card is authorized before assignment
+app.get('/api/authorized-cards/check/:uid', async (req, res) => {
+  try {
+    const { uid } = req.params;
+    
+    const authorizedCard = await AuthorizedCard.findOne({ 
+      uid, 
+      active: true,
+      expirationDate: { $gte: new Date() }
+    });
+
+    if (!authorizedCard) {
+      return res.status(404).json({ 
+        error: 'البطاقة غير مصرحة أو منتهية الصلاحية',
+        authorized: false 
+      });
+    }
+
+    res.json({
+      authorized: true,
+      card: authorizedCard,
+      message: 'البطاقة مصرحة وصالحة'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 let serialPort = null;
 
 function initializeRFIDReader() {
@@ -1044,16 +1219,52 @@ app.get('/api/cards', authenticate(['admin', 'secretary']), async (req, res) => 
 
 app.post('/api/cards', authenticate(['admin', 'secretary']), async (req, res) => {
   try {
-    // Check if card already exists
-    const existingCard = await Card.findOne({ uid: req.body.uid });
+    const { uid, student } = req.body;
+
+    // First check if card is authorized
+    const authorizedCard = await AuthorizedCard.findOne({ 
+      uid, 
+      active: true,
+      expirationDate: { $gte: new Date() }
+    });
+
+    if (!authorizedCard) {
+      return res.status(400).json({ 
+        error: 'البطاقة غير مصرحة أو منتهية الصلاحية. يرجى استخدام بطاقة مصرحة.' 
+      });
+    }
+
+    // Check if card already assigned to another student
+    const existingCard = await Card.findOne({ uid });
     if (existingCard) {
       return res.status(400).json({ error: 'البطاقة مسجلة بالفعل لطالب آخر' });
     }
 
-    const card = new Card(req.body);
+    // Check if student exists
+    const studentExists = await Student.findById(student);
+    if (!studentExists) {
+      return res.status(404).json({ error: 'الطالب غير موجود' });
+    }
+
+    const card = new Card({
+      uid,
+      student,
+      issueDate: new Date()
+    });
+
     await card.save();
+    
+    // Update authorized card with student assignment info
+    await AuthorizedCard.findByIdAndUpdate(authorizedCard._id, {
+      $set: { 
+        assignedTo: student,
+        assignedAt: new Date()
+      }
+    });
+
     res.status(201).json(card);
   } catch (err) {
+    console.error('Error creating card:', err);
     res.status(400).json({ error: err.message });
   }
 });
@@ -3325,5 +3536,4 @@ process.on('warning', (warning) => {
 console.error('Warning:', warning);
 // application specific logging, throwing an error, or other logic here
 });
-
 

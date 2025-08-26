@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>إدارة البطاقات المصرحة</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+body {
+    font-family: 'Cairo', sans-serif;
+    background-color: #f4f7f6;
+    color: #333;
+    margin: 0;
+    padding: 20px;
+    direction: rtl; /* Right-to-left for Arabic */
+    text-align: right;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+header {
+    text-align: center;
+    margin-bottom: 30px;
+    border-bottom: 2px solid #eee;
+    padding-bottom: 20px;
+}
+
+h1, h2 {
+    color: #17a2b8;
+}
+
+.form-section, .table-section {
+    margin-bottom: 30px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #555;
+}
+
+input[type="text"],
+input[type="date"],
+textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-sizing: border-box;
+    font-size: 16px;
+    transition: border-color 0.3s;
+}
+
+input[type="text"]:focus,
+input[type="date"]:focus,
+textarea:focus {
+    border-color: #17a2b8;
+    outline: none;
+}
+
+textarea {
+    resize: vertical;
+}
+
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+.btn-primary {
+    background-color: #17a2b8;
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background-color: #138496;
+    transform: translateY(-2px);
+}
+
+.btn-danger {
+    background-color: #dc3545;
+    color: #fff;
+}
+
+.btn-danger:hover {
+    background-color: #c82333;
+}
+
+.btn-warning {
+    background-color: #ffc107;
+    color: #333;
+}
+
+.btn-warning:hover {
+    background-color: #e0a800;
+}
+
+.card-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+.card-table th, .card-table td {
+    border: 1px solid #ddd;
+    padding: 12px;
+    text-align: right;
+}
+
+.card-table th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+    color: #555;
+}
+
+.card-table tbody tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.actions-cell {
+    width: 150px;
+    text-align: center;
+}
+
+.actions-cell .btn {
+    margin-left: 5px;
+}
+
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: bold;
+    color: #fff;
+    display: inline-block;
+}
+
+.status-active {
+    background-color: #28a745;
+}
+
+.status-expired {
+    background-color: #dc3545;
+}
+
+/* Modal Styling */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.4);
+    padding-top: 60px;
+}
+
+.modal-content {
+    background-color: #fff;
+    margin: 5% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 500px;
+    border-radius: 8px;
+    position: relative;
+    animation: fadeIn 0.5s;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.close-btn {
+    color: #aaa;
+    float: left; /* Changed from right to left for RTL */
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.close-btn:hover,
+.close-btn:focus {
+    color: #000;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.loading {
+    text-align: center;
+    color: #888;
+    font-style: italic;
+    padding: 20px;
+}    </style>
+</head>
+<body>
+
+
+
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-credit-card"></i> إدارة البطاقات المصرحة</h1>
+        </header>
+
+        <section class="form-section">
+            <h2>إضافة بطاقة جديدة</h2>
+            <form id="addCardForm">
+                <div class="form-group">
+                    <label for="uid">رقم البطاقة (UID)</label>
+                    <input type="text" id="uid" required>
+                </div>
+                <div class="form-group">
+                    <label for="cardName">اسم البطاقة</label>
+                    <input type="text" id="cardName" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">الوصف</label>
+                    <textarea id="description"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="expirationDate">تاريخ انتهاء الصلاحية</label>
+                    <input type="date" id="expirationDate" required>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">إضافة البطاقة</button>
+                </div>
+            </form>
+        </section>
+
+        <hr>
+
+        <section class="table-section">
+            <h2>قائمة البطاقات</h2>
+            <div id="loadingIndicator" class="loading" style="display: none;">جارٍ تحميل البيانات...</div>
+            <table class="card-table">
+                <thead>
+                    <tr>
+                        <th>رقم البطاقة (UID)</th>
+                        <th>اسم البطاقة</th>
+                        <th>تاريخ الانتهاء</th>
+                        <th>الحالة</th>
+                        <th>إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody id="cardsTableBody">
+                    </tbody>
+            </table>
+        </section>
+    </div>
+
+    <div id="editCardModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>تعديل بيانات البطاقة</h2>
+            <form id="editCardForm">
+                <input type="hidden" id="editCardId">
+                <div class="form-group">
+                    <label for="editUid">رقم البطاقة (UID)</label>
+                    <input type="text" id="editUid" disabled>
+                </div>
+                <div class="form-group">
+                    <label for="editCardName">اسم البطاقة</label>
+                    <input type="text" id="editCardName" required>
+                </div>
+                <div class="form-group">
+                    <label for="editDescription">الوصف</label>
+                    <textarea id="editDescription"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="editExpirationDate">تاريخ انتهاء الصلاحية</label>
+                    <input type="date" id="editExpirationDate" required>
+                </div>
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="editActive">
+                    <label for="editActive">نشط</label>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">حفظ التغييرات</button>
+                    <button type="button" class="btn btn-secondary close-btn">إلغاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:4200/api/authorized-cards';
+
+document.addEventListener('DOMContentLoaded', () => {
+    const addCardForm = document.getElementById('addCardForm');
+    const cardsTableBody = document.getElementById('cardsTableBody');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const editCardModal = document.getElementById('editCardModal');
+    const editCardForm = document.getElementById('editCardForm');
+    const closeButtons = document.querySelectorAll('.close-btn');
+
+    // Fetch and display all authorized cards
+    const fetchCards = async () => {
+        try {
+            loadingIndicator.style.display = 'block';
+            const response = await fetch(API_BASE_URL);
+            if (!response.ok) {
+                throw new Error('Failed to fetch cards');
+            }
+            const cards = await response.json();
+            renderCards(cards);
+        } catch (error) {
+            console.error('Error fetching cards:', error);
+            alert('حدث خطأ أثناء تحميل البطاقات.');
+        } finally {
+            loadingIndicator.style.display = 'none';
+        }
+    };
+
+    // Render cards to the table
+    const renderCards = (cards) => {
+        cardsTableBody.innerHTML = ''; // Clear existing rows
+        if (cards.length === 0) {
+            cardsTableBody.innerHTML = '<tr><td colspan="5" class="text-center">لا توجد بطاقات مسجلة.</td></tr>';
+            return;
+        }
+
+        cards.forEach(card => {
+            const row = document.createElement('tr');
+            const isExpired = new Date(card.expirationDate) < new Date();
+            const statusClass = isExpired ? 'status-expired' : 'status-active';
+            const statusText = isExpired ? 'منتهية' : 'صالحة';
+
+            row.innerHTML = `
+                <td>${card.uid}</td>
+                <td>${card.cardName}</td>
+                <td>${new Date(card.expirationDate).toLocaleDateString('ar-DZ')}</td>
+                <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                <td class="actions-cell">
+                    <button class="btn btn-warning edit-btn" data-id="${card._id}">تعديل</button>
+                    <button class="btn btn-danger delete-btn" data-id="${card._id}">حذف</button>
+                </td>
+            `;
+            cardsTableBody.appendChild(row);
+        });
+    };
+
+    // Handle form submission for adding a new card
+    addCardForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const uid = document.getElementById('uid').value;
+        const cardName = document.getElementById('cardName').value;
+        const description = document.getElementById('description').value;
+        const expirationDate = document.getElementById('expirationDate').value;
+
+        try {
+            const response = await fetch(API_BASE_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid, cardName, description, expirationDate })
+            });
+
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to add card');
+            }
+
+            alert('تمت إضافة البطاقة بنجاح!');
+            addCardForm.reset();
+            fetchCards(); // Refresh the list
+        } catch (error) {
+            console.error('Error adding card:', error);
+            alert(error.message);
+        }
+    });
+
+    // Handle delete button click
+    cardsTableBody.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('delete-btn')) {
+            const cardId = e.target.dataset.id;
+            if (confirm('هل أنت متأكد من حذف هذه البطاقة؟')) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/${cardId}`, {
+                        method: 'DELETE'
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to delete card');
+                    }
+
+                    alert('تم حذف البطاقة بنجاح!');
+                    fetchCards(); // Refresh the list
+                } catch (error) {
+                    console.error('Error deleting card:', error);
+                    alert('حدث خطأ أثناء حذف البطاقة.');
+                }
+            }
+        }
+    });
+
+    // Handle edit button click
+    cardsTableBody.addEventListener('click', async (e) => {
+        if (e.target.classList.contains('edit-btn')) {
+            const cardId = e.target.dataset.id;
+            try {
+                const response = await fetch(`${API_BASE_URL}/${cardId}`);
+                if (!response.ok) throw new Error('Card not found');
+                const card = await response.json();
+                
+                // Populate the modal form with card data
+                document.getElementById('editCardId').value = card._id;
+                document.getElementById('editUid').value = card.uid;
+                document.getElementById('editCardName').value = card.cardName;
+                document.getElementById('editDescription').value = card.description;
+                document.getElementById('editExpirationDate').value = new Date(card.expirationDate).toISOString().split('T')[0];
+                document.getElementById('editActive').checked = card.active;
+                
+                // Display the modal
+                editCardModal.style.display = 'block';
+            } catch (error) {
+                console.error('Error fetching card for edit:', error);
+                alert('حدث خطأ أثناء جلب بيانات البطاقة.');
+            }
+        }
+    });
+
+    // Handle modal form submission for editing
+    editCardForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const cardId = document.getElementById('editCardId').value;
+        const updatedData = {
+            cardName: document.getElementById('editCardName').value,
+            description: document.getElementById('editDescription').value,
+            expirationDate: document.getElementById('editExpirationDate').value,
+            active: document.getElementById('editActive').checked
+        };
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/${cardId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedData)
+            });
+
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to update card');
+            }
+
+            alert('تم تعديل البطاقة بنجاح!');
+            editCardModal.style.display = 'none'; // Close modal
+            fetchCards(); // Refresh the list
+        } catch (error) {
+            console.error('Error updating card:', error);
+            alert(error.message);
+        }
+    });
+
+    // Close the modal when the user clicks on <span> (x) or the "Cancel" button
+    closeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            editCardModal.style.display = 'none';
+        });
+    });
+
+    // Close the modal when the user clicks anywhere outside of it
+    window.addEventListener('click', (e) => {
+        if (e.target === editCardModal) {
+            editCardModal.style.display = 'none';
+        }
+    });
+
+    // Initial data load
+    fetchCards();
+});
+
+    </script>
+</body>
+</html>
