@@ -43,7 +43,7 @@
             <!-- New Footer Section -->
             <div class="system-footer">
                 <p>جميع الحقوق محفوظة &copy; <span id="current-year"></span> Redox Club</p>
-                <p>الإصدار 1.0.2</p>
+                <p>الإصدار 1.0.3</p>
             </div>
             <div class="login-footer">
                 <p>ليس لديك حساب؟ <a href="#" id="show-register">إنشاء حساب جديد</a></p>
@@ -541,8 +541,7 @@
                                             <th>ولي الأمر</th>
                                             <th>السنة الدراسية</th>
                                             <th>الحصص</th>
-                                            <th>الإجراءات</th>
-                                            
+
                                         </tr>
                                     </thead>
                                     <tbody id="studentsTable"></tbody>
@@ -834,7 +833,32 @@
                     </div>
                 </div>
             </div>
-
+<!-- Student Info Modal -->
+<div class="modal fade" id="studentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">معلومات الطالب</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="إغلاق"></button>
+        </div>
+        <div class="modal-body">
+          <p><strong>الاسم:</strong> <span id="modalStudentName"></span></p>
+          <p><strong>الرقم:</strong> <span id="modalStudentId"></span></p>
+          <p><strong>اسم ولي الأمر:</strong> <span id="modalParentName"></span></p>
+          <p><strong>السنة الدراسية:</strong> <span id="modalAcademicYear"></span></p>
+          <p><strong>عدد الفصول:</strong> <span id="modalClassesCount"></span></p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-primary" id="modalEditBtn"><i class="bi bi-pencil"></i> تعديل</button>
+          <button class="btn btn-outline-danger" id="modalDeleteBtn"><i class="bi bi-trash"></i> حذف</button>
+          <button class="btn btn-outline-success" id="modalEnrollBtn"><i class="bi bi-book"></i> تسجيل</button>
+          <button class="btn btn-outline-info" id="modalAttendanceBtn"><i class="bi bi-clock-history"></i> الحضور</button>
+          <button class="btn btn-outline-warning" id="modalPrintBtn"><i class="bi bi-cash"></i> طباعة إيصال</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
             <!-- Add Student Modal -->
             <div class="modal fade" id="addStudentModal" tabindex="-1">
                 <div class="modal-dialog modal-lg">
@@ -1197,4 +1221,5 @@
     <script src="script.js"></script>
 </body>
 
-</html>          
+</html>           
+            
